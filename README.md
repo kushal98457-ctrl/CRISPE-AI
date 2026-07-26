@@ -31,11 +31,7 @@
 
 ## 🚀 Live Demo
 
-Deploy to Netlify with one click:
-
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/kushal98457-ctrl/CRISPE-AI)
-
-Or visit the live site: [CRISPE Prompt Forge](https://your-site.netlify.app)
+Visit the live site: [CRISPE Prompt Forge](https://crispe-ai.netlify.app)
 
 ---
 
@@ -122,26 +118,6 @@ Get one free at [Google AI Studio](https://aistudio.google.com/apikey).
 
 Type a raw idea and click the arrow button (or press `Ctrl+Enter`).
 Watch as Gemma 4 crafts a perfect CRISPE-framework prompt in real-time!
-
----
-
-## 🌐 Deploy to Netlify
-
-```bash
-npm run build
-```
-
-This generates the `dist/` folder. Connect the repo to Netlify:
-
-1. Push to GitHub
-2. Go to [app.netlify.com](https://app.netlify.com)
-3. Click "Add new site" → "Import an existing project"
-4. Connect your GitHub repo
-5. Deploy settings are already in `netlify.toml`:
-   - **Build command:** `npm run build`
-   - **Publish directory:** `dist`
-
-No environment variables needed — users bring their own API key.
 
 ---
 
