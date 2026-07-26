@@ -2,7 +2,6 @@
 
 > **Transform raw ideas into battle-ready CRISPE-framework prompts with AI.**
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/placeholder/deploy-status)](https://app.netlify.com)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite)
