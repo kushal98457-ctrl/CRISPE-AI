@@ -140,6 +140,8 @@ class CrispeGenerationResponse(BaseModel):
     model_id: str = Field(..., description="Model identifier used for generation.")
     usage: Optional[ModelUsageMetadata] = Field(default=None, description="Token usage metadata.")
     finish_reason: Optional[str] = Field(default=None, description="Completion finish reason.")
+    request_id: Optional[str] = Field(default=None, description="Request correlation identifier.")
+    schema_version: str = Field(default="1.0", description="API contract schema version.")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="UTC timestamp of generation.",

@@ -150,3 +150,8 @@ def get_generation_service(
 ) -> CrispeGenerationService:
     """Factory creating an instance of CrispeGenerationService with injected adapter."""
     return CrispeGenerationService(adapter=adapter)
+
+
+def get_generation_service_dependency() -> CrispeGenerationService:
+    """FastAPI dependency provider for CrispeGenerationService."""
+    return CrispeGenerationService(adapter=get_model_adapter())

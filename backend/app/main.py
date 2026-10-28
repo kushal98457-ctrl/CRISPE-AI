@@ -79,14 +79,14 @@ def create_application(settings: Settings | None = None) -> FastAPI:
             for err in exc.errors()
         ]
         response_content = ErrorResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             error_code="VALIDATION_ERROR",
             message="Request input validation failed.",
             request_id=request_id,
             details=errors,
         )
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content=response_content.model_dump(),
             headers={"X-Request-ID": request_id},
         )

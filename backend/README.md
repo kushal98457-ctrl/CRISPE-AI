@@ -45,12 +45,75 @@ Interactive API documentation will be available at:
 - **Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - **ReDoc:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 - **Liveness Probe:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) or `/api/v1/health`
+- **CRISPE Prompt Generation:** `POST /api/v1/prompts/generate`
+
+---
+
+## 📡 API Reference
+
+### Generate Structured CRISPE Prompt
+- **Method & Path:** `POST /api/v1/prompts/generate`
+- **Content-Type:** `application/json`
+
+#### Request Payload:
+```json
+{
+  "idea": "Build a secure webhook handler with signature verification",
+  "model_id": "gemma-4-26b-a4b-it",
+  "temperature": 0.4,
+  "thinking_budget": 1024
+}
+```
+
+#### Successful Response (`200 OK`):
+```json
+{
+  "idea": "Build a secure webhook handler with signature verification",
+  "sections": {
+    "context": "Cloud-native payment webhook ingestion endpoint receiving third-party notifications.",
+    "role": "Principal Security Engineer and API Designer.",
+    "instruction": "Design an asynchronous webhook receiver that verifies HMAC-SHA256 signatures, deduplicates events, and stores raw payloads.",
+    "specification": "Provide TypeScript code and a Markdown specification. Reject unsigned requests with 401. Enforce replay attack window of 300 seconds.",
+    "performance": "Verification must complete in < 2ms without blocking the Node.js event loop.",
+    "example": "Input: Stripe webhook payload with X-Signature header. Output: Validated event dispatches to internal queue."
+  },
+  "formatted_prompt": "# C - Context\nCloud-native payment webhook...\n\n# R - Role\nPrincipal Security Engineer...\n\n# I - Instruction\nDesign an asynchronous...\n\n# S - Specification\nProvide TypeScript...\n\n# P - Performance\nVerification must...\n\n# E - Example\nInput: Stripe webhook...",
+  "model_id": "gemma-4-26b-a4b-it",
+  "usage": {
+    "prompt_tokens": 85,
+    "candidates_tokens": 240,
+    "total_tokens": 325,
+    "thoughts_tokens": null
+  },
+  "finish_reason": "STOP",
+  "request_id": "req-3b48f98a",
+  "schema_version": "1.0",
+  "created_at": "2026-10-28T13:15:00Z"
+}
+```
+
+#### Error Response Format (`4xx` / `5xx`):
+```json
+{
+  "status_code": 422,
+  "error_code": "VALIDATION_ERROR",
+  "message": "Request input validation failed.",
+  "request_id": "req-3b48f98a",
+  "details": [
+    {
+      "loc": ["body", "idea"],
+      "msg": "Prompt idea cannot be empty or whitespace.",
+      "type": "value_error"
+    }
+  ]
+}
+```
 
 ---
 
 ## 🧪 Testing
 
-### Running Unit Tests (Offline / Zero Credentials)
+### Running Unit & Route Tests (Offline / Zero Credentials)
 All regular tests use mock adapters and test fakes. No Google API key is required:
 
 ```bash
@@ -76,7 +139,7 @@ pytest backend/tests/test_live_smoke.py -v
 backend/
 ├── app/
 │   ├── main.py                     # Application factory, lifespan, CORS, and error handlers
-│   ├── adapters/                   # AI model provider adapters (Step 7)
+│   ├── adapters/                   # AI model provider adapters
 │   │   ├── __init__.py             # Adapter exports
 │   │   └── gemini_adapter.py       # Google GenAI SDK adapter with retry & error translation
 │   ├── core/
@@ -92,10 +155,11 @@ backend/
 │   ├── api/
 │   │   ├── router.py               # Root /api/v1 router aggregator
 │   │   └── routes/
-│   │       └── health.py           # /health endpoint implementation
+│   │       ├── health.py           # /health endpoint implementation
+│   │       └── prompts.py          # /prompts/generate endpoint implementation (Step 8)
 │   └── services/
 │       ├── __init__.py             # Service exports
-│       └── generation_service.py   # CRISPE prompt generation service (Step 7)
+│       └── generation_service.py   # CRISPE prompt generation service
 └── tests/
     ├── conftest.py                 # Pytest async client fixtures
     ├── test_configuration.py       # Settings validation tests
@@ -104,7 +168,8 @@ backend/
     ├── test_generation_service.py  # CRISPE generation service tests
     ├── test_health.py              # Health check tests
     ├── test_live_smoke.py          # Opt-in live smoke test
-    └── test_model_adapter.py       # Gemini model adapter tests
+    ├── test_model_adapter.py       # Gemini model adapter tests
+    └── test_prompts_route.py       # API route tests for /prompts/generate (Step 8)
 ```
 
 ---
