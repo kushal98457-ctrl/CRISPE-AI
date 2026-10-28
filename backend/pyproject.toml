@@ -1,0 +1,45 @@
+[project]
+name = "crispe-ai-backend"
+version = "0.1.0"
+description = "FastAPI backend, DSPy/GEPA prompt engine, semantic memory, and MCP server for CRISPE-AI"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.8.0,<3.0.0",
+    "pydantic-settings>=2.4.0",
+    "google-genai>=2.12.0",
+    "httpx>=0.27.0",
+    "sqlalchemy>=2.0.30",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.2.0",
+    "pgvector>=0.3.0",
+]
+
+[project.optional-dependencies]
+optimizer = [
+    "dspy-ai>=2.5.0",
+    "litellm>=1.40.0",
+    "gepa>=0.1.4",
+]
+mcp = [
+    "mcp>=1.2.0",
+    "fastmcp>=0.4.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+all = [
+    "crispe-ai-backend[optimizer,mcp,dev]",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+asyncio_mode = "auto"
