@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api.router import api_router
 from app.api.routes import health
 from app.core.config import Settings, get_settings
+from app.core.exceptions import PromptGenerationError, ProviderError
 from app.core.logging import get_logger, setup_logging
 from app.middleware.request_context import RequestContextMiddleware
 from app.schemas.error import ErrorDetail, ErrorResponse
@@ -31,6 +32,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     yield
     logger.info("CRISPE-AI backend shutting down gracefully.")
+    try:
+        from app.adapters.gemini_adapter import get_model_adapter
+        adapter = get_model_adapter()
+        await adapter.close()
+    except Exception as exc:
+        logger.warning("Error during model adapter shutdown: %s", str(exc))
 
 
 def create_application(settings: Settings | None = None) -> FastAPI:
@@ -99,6 +106,52 @@ def create_application(settings: Settings | None = None) -> FastAPI:
             status_code=exc.status_code,
             error_code=error_code,
             message=str(exc.detail),
+            request_id=request_id,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=response_content.model_dump(),
+            headers={"X-Request-ID": request_id},
+        )
+
+    @app.exception_handler(ProviderError)
+    async def provider_exception_handler(
+        request: Request, exc: ProviderError
+    ) -> JSONResponse:
+        request_id = getattr(request.state, "request_id", "-")
+        logger.error(
+            "Provider error during request [%s]: code=%s msg=%s",
+            request_id,
+            exc.error_code,
+            exc.message,
+        )
+        response_content = ErrorResponse(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
+            request_id=request_id,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=response_content.model_dump(),
+            headers={"X-Request-ID": request_id},
+        )
+
+    @app.exception_handler(PromptGenerationError)
+    async def prompt_generation_exception_handler(
+        request: Request, exc: PromptGenerationError
+    ) -> JSONResponse:
+        request_id = getattr(request.state, "request_id", "-")
+        logger.warning(
+            "Prompt generation error during request [%s]: code=%s msg=%s",
+            request_id,
+            exc.error_code,
+            exc.message,
+        )
+        response_content = ErrorResponse(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
             request_id=request_id,
         )
         return JSONResponse(

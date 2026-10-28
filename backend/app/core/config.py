@@ -7,14 +7,7 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class ConfigurationError(RuntimeError):
-    """Base exception for application configuration errors."""
-    pass
-
-
-class MissingProviderCredentialError(ConfigurationError):
-    """Raised when an operation requiring Google GenAI is invoked without an API key."""
-    pass
+from app.core.exceptions import ConfigurationError, MissingProviderCredentialError
 
 
 class Settings(BaseSettings):
@@ -66,16 +59,28 @@ class Settings(BaseSettings):
     )
     PRIMARY_MODEL: str = Field(
         default="gemma-4-26b-a4b-it",
+        validation_alias=AliasChoices("PRIMARY_MODEL", "GEMINI_MODEL_ID"),
         description="Primary CRISPE prompt generation model checkpoint",
     )
     FALLBACK_MODEL: str = Field(
         default="gemini-2.5-flash",
+        validation_alias=AliasChoices("FALLBACK_MODEL", "GEMINI_FALLBACK_MODEL_ID"),
         description="Production fallback model if primary is unavailable",
     )
     REFLECTION_MODEL: str = Field(
         default="gemini-2.5-flash",
         description="Reflection model for DSPy/GEPA optimization diagnostics",
     )
+
+    @property
+    def GEMINI_MODEL_ID(self) -> str:
+        """Alias property for PRIMARY_MODEL."""
+        return self.PRIMARY_MODEL
+
+    @property
+    def GEMINI_FALLBACK_MODEL_ID(self) -> str:
+        """Alias property for FALLBACK_MODEL."""
+        return self.FALLBACK_MODEL
 
     # Operational limits & timeouts
     GEMINI_TIMEOUT_SECONDS: float = Field(
@@ -105,6 +110,12 @@ class Settings(BaseSettings):
     GEMINI_ENABLE_THINKING: bool = Field(
         default=False,
         description="Enable model internal reasoning mode where supported (e.g. Gemini 2.5 Flash)",
+    )
+    GEMINI_THINKING_BUDGET: int = Field(
+        default=1024,
+        ge=0,
+        le=32768,
+        description="Reasoning token budget for models supporting thinking mode",
     )
 
     # --------------------------------------------------------------------------
