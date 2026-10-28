@@ -1,10 +1,10 @@
 """SQLAlchemy ORM model for persistent CRISPE prompt records."""
 
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 import uuid
-from sqlalchemy import Integer, String, Text, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Index, Integer, String, Text, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 from app.schemas.crispe import (
@@ -13,11 +13,17 @@ from app.schemas.crispe import (
     ModelUsageMetadata,
 )
 
+if TYPE_CHECKING:
+    from app.models.principal import Principal
+
 
 class PromptRecord(Base, TimestampMixin):
     """Persistent storage for generated and user-saved CRISPE prompts."""
 
     __tablename__ = "prompt_records"
+    __table_args__ = (
+        Index("ix_prompt_records_owner_created", "owner_id", "created_at"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -83,9 +89,15 @@ class PromptRecord(Base, TimestampMixin):
     )
     owner_id: Mapped[Optional[str]] = mapped_column(
         String(128),
+        ForeignKey("principals.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
-        doc="Optional user or principal identifier for future multi-tenant authorization.",
+        doc="Foreign key reference to the owning Principal.",
+    )
+
+    owner: Mapped[Optional["Principal"]] = relationship(
+        "Principal",
+        back_populates="prompts",
     )
 
     # Token consumption telemetry

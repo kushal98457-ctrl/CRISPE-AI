@@ -255,3 +255,99 @@ class EmptyPromptError(PromptGenerationError):
             status_code=422,
             error_code="EMPTY_PROMPT_ERROR",
         )
+
+
+class SecurityError(CRISPEError):
+    """Base exception for authorization, identity, and data ownership violations."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 403,
+        error_code: str = "SECURITY_ERROR",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.original_error = original_error
+
+
+class AuthenticationRequiredError(SecurityError):
+    """Raised when an operation requires an authenticated security principal (HTTP 401)."""
+
+    def __init__(
+        self,
+        message: str = "Authentication is required to access this resource.",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=401,
+            error_code="AUTHENTICATION_REQUIRED",
+            original_error=original_error,
+        )
+
+
+class OwnershipViolationError(SecurityError):
+    """Raised when a principal attempts to access or modify a resource owned by another principal (HTTP 403)."""
+
+    def __init__(
+        self,
+        message: str = "You do not have permission to access or modify this resource.",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=403,
+            error_code="OWNERSHIP_VIOLATION",
+            original_error=original_error,
+        )
+
+
+class InactivePrincipalError(SecurityError):
+    """Raised when a deactivated security principal attempts to perform operations (HTTP 403)."""
+
+    def __init__(
+        self,
+        message: str = "The security principal is inactive and cannot perform operations.",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=403,
+            error_code="INACTIVE_PRINCIPAL",
+            original_error=original_error,
+        )
+
+
+class OwnerImmutableError(SecurityError):
+    """Raised when an operation attempts to reassign or change the owner of an existing record (HTTP 400)."""
+
+    def __init__(
+        self,
+        message: str = "Record ownership cannot be transferred or reassigned.",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=400,
+            error_code="OWNER_IMMUTABLE",
+            original_error=original_error,
+        )
+
+
+class PrincipalNotFoundError(SecurityError):
+    """Raised when an expected principal cannot be found in the identity store (HTTP 404)."""
+
+    def __init__(
+        self,
+        message: str = "Security principal was not found.",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=404,
+            error_code="PRINCIPAL_NOT_FOUND",
+            original_error=original_error,
+        )

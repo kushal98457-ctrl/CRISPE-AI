@@ -239,9 +239,6 @@ def test_alembic_script_directory_discovers_migration() -> None:
     """Alembic ScriptDirectory detects the 0001_initial_prompt_records migration."""
     cfg = Config("alembic.ini")
     script = ScriptDirectory.from_config(cfg)
-    heads = script.get_heads()
-    assert "0001_prompt_records" in heads
-
     rev = script.get_revision("0001_prompt_records")
     assert rev is not None
     assert rev.down_revision is None

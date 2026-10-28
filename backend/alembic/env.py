@@ -16,7 +16,7 @@ if str(backend_root) not in sys.path:
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.models.prompt_record import PromptRecord  # noqa: F401
+import app.models  # noqa: F401 - registers all ORM models with Base.metadata
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
