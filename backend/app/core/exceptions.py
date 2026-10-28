@@ -21,6 +21,58 @@ class MissingProviderCredentialError(ConfigurationError):
     pass
 
 
+class DatabaseError(CRISPEError):
+    """Base exception for database infrastructure failures."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 500,
+        error_code: str = "DATABASE_ERROR",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.original_error = original_error
+
+
+class DatabaseConfigError(DatabaseError):
+    """Raised when database connection URL or configuration is missing or invalid."""
+
+    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
+        super().__init__(
+            message=message,
+            status_code=500,
+            error_code="DATABASE_CONFIG_ERROR",
+            original_error=original_error,
+        )
+
+
+class DatabaseConnectionError(DatabaseError):
+    """Raised when connection to PostgreSQL fails."""
+
+    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
+        super().__init__(
+            message=message,
+            status_code=503,
+            error_code="DATABASE_CONNECTION_ERROR",
+            original_error=original_error,
+        )
+
+
+class DatabaseUnavailableError(DatabaseError):
+    """Raised when database is unreachable or offline."""
+
+    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
+        super().__init__(
+            message=message,
+            status_code=503,
+            error_code="DATABASE_UNAVAILABLE",
+            original_error=original_error,
+        )
+
+
 class ProviderError(CRISPEError):
     """Base exception for AI model provider failures."""
 

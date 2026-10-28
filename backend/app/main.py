@@ -39,6 +39,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         logger.warning("Error during model adapter shutdown: %s", str(exc))
 
+    try:
+        from app.db.session import close_database
+        await close_database()
+    except Exception as exc:
+        logger.warning("Error during database engine shutdown: %s", str(exc))
+
 
 def create_application(settings: Settings | None = None) -> FastAPI:
     """Application factory for FastAPI instance."""

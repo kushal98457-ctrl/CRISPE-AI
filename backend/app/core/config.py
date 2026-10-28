@@ -7,7 +7,11 @@ from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-from app.core.exceptions import ConfigurationError, MissingProviderCredentialError
+from app.core.exceptions import (
+    ConfigurationError,
+    DatabaseConfigError,
+    MissingProviderCredentialError,
+)
 
 
 class Settings(BaseSettings):
@@ -119,11 +123,39 @@ class Settings(BaseSettings):
     )
 
     # --------------------------------------------------------------------------
-    # Semantic Memory & Vector Database (Feature C Placeholders)
+    # Semantic Memory & Vector Database (Feature C)
     # --------------------------------------------------------------------------
     DATABASE_URL: Optional[str] = Field(
         default="postgresql+psycopg://postgres:postgres@localhost:5432/crispe_ai",
         description="PostgreSQL connection string with psycopg driver",
+    )
+    DB_POOL_SIZE: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Database connection pool size",
+    )
+    DB_MAX_OVERFLOW: int = Field(
+        default=10,
+        ge=0,
+        le=50,
+        description="Maximum overflow connections beyond pool size",
+    )
+    DB_POOL_TIMEOUT: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=300.0,
+        description="Seconds to wait before connection acquisition times out",
+    )
+    DB_POOL_RECYCLE: int = Field(
+        default=1800,
+        ge=60,
+        le=7200,
+        description="Recycle connections after this duration in seconds",
+    )
+    DB_ECHO_SQL: bool = Field(
+        default=False,
+        description="Log executed SQL queries (development/debugging only)",
     )
     EMBEDDING_MODEL: str = Field(
         default="gemini-embedding-001",
@@ -187,6 +219,20 @@ class Settings(BaseSettings):
             return False
         return bool(self.GEMINI_API_KEY.get_secret_value().strip())
 
+    def get_database_url(self) -> str:
+        """Retrieve and normalize the asynchronous database connection URL."""
+        if not self.DATABASE_URL or not self.DATABASE_URL.strip():
+            raise DatabaseConfigError(
+                "Database URL is not configured. Please set DATABASE_URL in the environment."
+            )
+        url = self.DATABASE_URL.strip()
+        # Normalize standard postgresql:// URL to postgresql+psycopg://
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+        elif url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg://", 1)
+        return url
+
     def safe_summary(self) -> Dict[str, Any]:
         """
         Return a sanitized diagnostic dictionary of configuration settings.
@@ -220,6 +266,10 @@ class Settings(BaseSettings):
             "gemini_default_temperature": self.GEMINI_DEFAULT_TEMPERATURE,
             "gemini_enable_thinking": self.GEMINI_ENABLE_THINKING,
             "database_url": masked_db,
+            "db_pool_size": self.DB_POOL_SIZE,
+            "db_max_overflow": self.DB_MAX_OVERFLOW,
+            "db_pool_timeout": self.DB_POOL_TIMEOUT,
+            "db_pool_recycle": self.DB_POOL_RECYCLE,
             "embedding_model": self.EMBEDDING_MODEL,
             "embedding_dimension": self.EMBEDDING_DIMENSION,
             "default_max_iterations": self.DEFAULT_MAX_ITERATIONS,

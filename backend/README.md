@@ -9,6 +9,7 @@ FastAPI backend service supporting CRISPE Prompt Forge, Semantic Prompt Memory, 
 ### 1. Prerequisites
 - Python ≥ 3.12 (Host verified: `Python 3.14.5`)
 - Virtual environment at `backend/.venv`
+- PostgreSQL 16 with pgvector (optional for offline testing, required for persistence)
 
 ### 2. Activate Virtual Environment
 
@@ -20,7 +21,14 @@ FastAPI backend service supporting CRISPE Prompt Forge, Semantic Prompt Memory, 
 source .venv/bin/activate
 ```
 
-### 3. Configure Environment
+### 3. Start Local PostgreSQL + pgvector (Docker)
+
+```bash
+docker compose up -d
+```
+*(Starts `pgvector/pgvector:pg16` on port `5432` with database `crispe_ai`)*
+
+### 4. Configure Environment
 
 Copy `.env.example` to `.env`:
 
@@ -32,10 +40,10 @@ Key environment settings:
 - `GEMINI_API_KEY`: Google AI Studio API key (alias: `GOOGLE_API_KEY`)
 - `GEMINI_MODEL_ID`: Default generation model (defaults to `gemma-4-26b-a4b-it`)
 - `GEMINI_FALLBACK_MODEL_ID`: Fallback generation model (defaults to `gemini-2.5-flash`)
-- `DATABASE_URL`: PostgreSQL connection string with pgvector
+- `DATABASE_URL`: `postgresql+psycopg://postgres:postgres@localhost:5432/crispe_ai`
 - `CORS_ORIGINS`: Allowed frontend origins (defaults to `http://localhost:5173`)
 
-### 4. Run Development Server
+### 5. Run Development Server
 
 ```bash
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
@@ -45,7 +53,34 @@ Interactive API documentation will be available at:
 - **Swagger UI:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - **ReDoc:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 - **Liveness Probe:** [http://127.0.0.1:8000/health](http://127.0.0.1:8000/health) or `/api/v1/health`
+- **Database Readiness Probe:** [http://127.0.0.1:8000/health/ready](http://127.0.0.1:8000/health/ready)
 - **CRISPE Prompt Generation:** `POST /api/v1/prompts/generate`
+
+---
+
+## 🗄️ Database & Migrations
+
+### Architecture
+- **ORM:** SQLAlchemy 2.x declarative models via [`app.db.base.Base`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/db/base.py).
+- **Driver:** `psycopg` (v3.3.6) asynchronous driver (`postgresql+psycopg://`).
+- **Session Lifecycle:** Asynchronous dependency injection via [`get_db_session()`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/db/session.py) with automatic rollback on error.
+- **Engine Lifecycle:** Asynchronous connection pool disposal on FastAPI lifespan shutdown.
+- **Migrations:** Alembic configured in asynchronous mode (`backend/alembic/`).
+
+### Common Alembic Commands
+```bash
+# Check current migration revision
+alembic current
+
+# Generate a new migration revision
+alembic revision --autogenerate -m "create_prompt_memory_table"
+
+# Apply pending migrations
+alembic upgrade head
+
+# Rollback one migration revision
+alembic downgrade -1
+```
 
 ---
 
@@ -92,29 +127,12 @@ Interactive API documentation will be available at:
 }
 ```
 
-#### Error Response Format (`4xx` / `5xx`):
-```json
-{
-  "status_code": 422,
-  "error_code": "VALIDATION_ERROR",
-  "message": "Request input validation failed.",
-  "request_id": "req-3b48f98a",
-  "details": [
-    {
-      "loc": ["body", "idea"],
-      "msg": "Prompt idea cannot be empty or whitespace.",
-      "type": "value_error"
-    }
-  ]
-}
-```
-
 ---
 
 ## 🧪 Testing
 
-### Running Unit & Route Tests (Offline / Zero Credentials)
-All regular tests use mock adapters and test fakes. No Google API key is required:
+### Running Unit, Route, and Database Tests (Offline / Zero External Dependencies)
+All unit and route tests use mock adapters, dependency overrides, and in-memory async SQLite. No Google API key or PostgreSQL service is required:
 
 ```bash
 pytest backend/tests -v
@@ -137,6 +155,11 @@ pytest backend/tests/test_live_smoke.py -v
 
 ```
 backend/
+├── alembic/                        # Database migration scripts (Step 9)
+│   ├── env.py                      # Asynchronous migration runner connected to Base.metadata
+│   ├── script.py.mako              # Migration file template
+│   └── versions/                   # Migration revision history
+├── alembic.ini                     # Alembic configuration
 ├── app/
 │   ├── main.py                     # Application factory, lifespan, CORS, and error handlers
 │   ├── adapters/                   # AI model provider adapters
@@ -144,32 +167,37 @@ backend/
 │   │   └── gemini_adapter.py       # Google GenAI SDK adapter with retry & error translation
 │   ├── core/
 │   │   ├── config.py               # Pydantic Settings (.env management)
-│   │   ├── exceptions.py           # Domain exceptions (ProviderError, PromptGenerationError)
+│   │   ├── exceptions.py           # Domain exceptions (DatabaseError, ProviderError, etc.)
 │   │   └── logging.py              # Structured logging and secret redaction filter
+│   ├── db/                         # Database infrastructure (Step 9)
+│   │   ├── __init__.py             # DB module exports
+│   │   ├── base.py                 # SQLAlchemy 2.0 DeclarativeBase and TimestampMixin
+│   │   └── session.py              # AsyncEngine, sessionmaker, and get_db_session
 │   ├── middleware/
 │   │   └── request_context.py      # Request ID and latency tracking
 │   ├── schemas/
 │   │   ├── crispe.py               # CrispeSections, CrispeGenerationRequest/Response
 │   │   ├── error.py                # Standardized ErrorResponse model
-│   │   └── health.py               # HealthResponse model
+│   │   └── health.py               # HealthResponse and ReadinessResponse models
 │   ├── api/
 │   │   ├── router.py               # Root /api/v1 router aggregator
 │   │   └── routes/
-│   │       ├── health.py           # /health endpoint implementation
-│   │       └── prompts.py          # /prompts/generate endpoint implementation (Step 8)
+│   │       ├── health.py           # /health and /health/ready probe implementations
+│   │       └── prompts.py          # /prompts/generate endpoint implementation
 │   └── services/
 │       ├── __init__.py             # Service exports
 │       └── generation_service.py   # CRISPE prompt generation service
 └── tests/
     ├── conftest.py                 # Pytest async client fixtures
     ├── test_configuration.py       # Settings validation tests
+    ├── test_database.py            # Database engine, session, & readiness tests (Step 9)
     ├── test_environment.py         # Runtime dependency smoke tests
     ├── test_errors_and_cors.py     # CORS & error handler tests
     ├── test_generation_service.py  # CRISPE generation service tests
     ├── test_health.py              # Health check tests
     ├── test_live_smoke.py          # Opt-in live smoke test
     ├── test_model_adapter.py       # Gemini model adapter tests
-    └── test_prompts_route.py       # API route tests for /prompts/generate (Step 8)
+    └── test_prompts_route.py       # API route tests for /prompts/generate
 ```
 
 ---
@@ -186,10 +214,3 @@ backend/
   - `# S - Specification`
   - `# P - Performance`
   - `# E - Example`
-- **Error Mapping & Resilience:**
-  - `401 / API_KEY_INVALID` ➔ `ProviderAuthenticationError` (Non-retryable)
-  - `403 / PERMISSION_DENIED` ➔ `ProviderPermissionError` (Non-retryable)
-  - `404 / NOT_FOUND` ➔ `ModelNotFoundError` (Non-retryable)
-  - `429 / RESOURCE_EXHAUSTED` ➔ `ProviderRateLimitError` (Retryable with exponential backoff & jitter)
-  - `408 / 504 / Timeout` ➔ `ProviderTimeoutError` (Retryable)
-  - `500 / 502 / 503` ➔ `ProviderUnavailableError` (Retryable)
