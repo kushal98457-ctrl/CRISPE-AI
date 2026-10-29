@@ -1,5 +1,11 @@
-"""DSPy and GEPA integration package for programmable CRISPE prompt generation (Steps 22 & 23)."""
+"""DSPy and GEPA integration package for programmable CRISPE prompt generation (Steps 22, 23 & 24)."""
 
+from app.dspy_modules.budget_guard import (
+    BudgetExceededError,
+    OptimizationTimeoutError,
+    ResourceBudgetGuard,
+    ResourceUsageSummary,
+)
 from app.dspy_modules.dataset_converter import (
     convert_evaluation_example,
     convert_evaluation_examples,
@@ -9,6 +15,13 @@ from app.dspy_modules.dataset_converter import (
 )
 from app.dspy_modules.evaluation_adapter import (
     DspyEvaluationAdapter,
+)
+from app.dspy_modules.experiment_config import (
+    GepaExperimentConfig,
+)
+from app.dspy_modules.experiment_runner import (
+    GepaExperimentResult,
+    GepaExperimentRunner,
 )
 from app.dspy_modules.gepa_metric import (
     CrispeGepaMetric,
@@ -30,6 +43,10 @@ from app.dspy_modules.service import (
 from app.dspy_modules.signature import (
     CrispeGenerationSignature,
 )
+from app.dspy_modules.subset_selector import (
+    PilotSubsetSelector,
+    PilotSubsetsMetadata,
+)
 
 __all__ = [
     "CrispeGenerationSignature",
@@ -48,4 +65,13 @@ __all__ = [
     "load_holdout_dspy_examples",
     "CrispeGepaMetric",
     "crispe_gepa_metric",
+    "ResourceBudgetGuard",
+    "ResourceUsageSummary",
+    "BudgetExceededError",
+    "OptimizationTimeoutError",
+    "PilotSubsetSelector",
+    "PilotSubsetsMetadata",
+    "GepaExperimentConfig",
+    "GepaExperimentRunner",
+    "GepaExperimentResult",
 ]

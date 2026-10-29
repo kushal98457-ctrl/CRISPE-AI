@@ -1,0 +1,53 @@
+{
+  "predictor": {
+    "traces": [],
+    "train": [],
+    "demos": [],
+    "signature": {
+      "instructions": "Transform a user's prompt idea, domain context, and constraints into a production-grade CRISPE prompt.\n\nThe generated output must strictly populate the six canonical CRISPE framework sections:\n- Context: The operational background, domain circumstances, and environment.\n- Role: The persona, authority, perspective, and professional identity.\n- Instruction: The primary task, explicit action commands, and step-by-step methodologies.\n- Specification: Constraints, formatting rules, length guidelines, and negative boundaries.\n- Performance: Evaluation criteria, success benchmarks, and qualitative standards.\n- Example: Concrete, illustrative sample input/output demonstrating the desired execution pattern.",
+      "fields": [
+        {
+          "prefix": "Idea:",
+          "description": "The core task, raw prompt idea, or initial instruction to transform into the CRISPE framework."
+        },
+        {
+          "prefix": "Task Context:",
+          "description": "Operational domain circumstances, user environment, and background necessary to interpret the task."
+        },
+        {
+          "prefix": "Constraints:",
+          "description": "Explicit technical boundaries, limitations, technology locks, and negative rules to preserve."
+        },
+        {
+          "prefix": "Output Format Preference:",
+          "description": "Structural format or schema desired for the downstream response (e.g., Markdown, JSON, table)."
+        },
+        {
+          "prefix": "Context:",
+          "description": "C - Context: The background situation, domain circumstances, operational setting, and business context."
+        },
+        {
+          "prefix": "Role:",
+          "description": "R - Role: The persona, authority, perspective, professional identity, and tone of voice the AI must embody."
+        },
+        {
+          "prefix": "Instruction:",
+          "description": "I - Instruction: The primary task, explicit actions, step-by-step commands, and direct methodologies."
+        },
+        {
+          "prefix": "Specification:",
+          "description": "S - Specification: Constraints, formatting rules, length guidelines, structural requirements, and negative boundaries."
+        },
+        {
+          "prefix": "Performance:",
+          "description": "P - Performance: Evaluation criteria, success benchmarks, qualitative standards, and output quality metrics."
+        },
+        {
+          "prefix": "Example:",
+          "description": "E - Example: Concrete, illustrative sample input/output demonstrations or reference patterns showing the execution style."
+        }
+      ]
+    },
+    "lm": null
+  }
+}

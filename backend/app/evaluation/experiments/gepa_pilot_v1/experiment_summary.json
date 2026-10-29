@@ -1,0 +1,47 @@
+{
+  "experiment_id": "gepa_pilot_v1",
+  "status": "SUCCESS",
+  "error_message": null,
+  "generation_model_id": "mock-student-gemini-flash",
+  "reflection_model_id": "mock-reflection-gemini-flash",
+  "is_mock": true,
+  "dataset_version": "v1",
+  "dataset_sha256": "9157053e31d52931dbe49182fc1f79bfd8a085d1aaeef0876793b176fbb85573",
+  "train_example_ids": [
+    "eval_aml_001",
+    "eval_edg_001",
+    "eval_edu_001",
+    "eval_prd_001",
+    "eval_swe_001"
+  ],
+  "val_example_ids": [
+    "eval_aml_006",
+    "eval_edg_004",
+    "eval_edu_002"
+  ],
+  "holdout_excluded": true,
+  "resource_usage": {
+    "gepa_metric_calls": 15,
+    "generation_calls": 21,
+    "reflection_calls": 1,
+    "judge_calls": 0,
+    "total_provider_calls": 22,
+    "elapsed_seconds": 0.08,
+    "is_budget_exceeded": true,
+    "budget_exceeded_reason": "Metric call budget exhausted: 15 >= 15",
+    "start_time": "2026-10-29T14:21:17.054069+00:00",
+    "finish_time": "2026-10-29T14:21:17.054054+00:00"
+  },
+  "comparison": {
+    "baseline_mean_score": 0.4,
+    "candidate_mean_score": 0.4,
+    "absolute_score_diff": 0.0,
+    "relative_change_pct": 0.0,
+    "baseline_critical_failures": 3,
+    "candidate_critical_failures": 3,
+    "instructions_changed": false,
+    "evaluation_examples_count": 3
+  },
+  "candidate_status": "EXPERIMENTAL_CANDIDATE",
+  "is_promoted": false
+}

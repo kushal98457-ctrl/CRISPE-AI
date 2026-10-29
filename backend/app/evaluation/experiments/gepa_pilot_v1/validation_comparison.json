@@ -1,0 +1,71 @@
+{
+  "experiment_id": "gepa_pilot_v1",
+  "baseline_results": [
+    {
+      "example_id": "eval_aml_006",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[REQUIREMENTS] Check 'eval_aml_006_crit_0' failed: Failed: Insufficient matches from term group ['enforce', 'chain-of-thought', 'justification', 'before'].\n[REQUIREMENTS] Check 'eval_aml_006_crit_1' failed: Failed: Insufficient matches from term group ['auto-fail', 'triggers', 'regulatory', 'pii'].\n[REQUIREMENTS] Check 'eval_aml_006_req_1' failed: Failed: Insufficient matches from term group ['chain-of-thought', 'justification', 'before'].\n[REQUIREMENTS] Check 'eval_aml_006_req_2' failed: Failed: Insufficient matches from term group ['reference-guided', 'evaluation', 'comparing'].\n[REQUIREMENTS] Check 'eval_aml_006_req_3' failed: Failed: Insufficient matches from term group ['demand', 'calibration', 'checks'].\n[CONSTRAINTS] Check 'eval_aml_006_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_aml_006_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    },
+    {
+      "example_id": "eval_edg_004",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[OUTPUT_FORMAT] Check 'eval_edg_004_output_format' failed: Failed: Output format requirement missing (expected one of ['analysis', 'architectural', 'critique', 'trade-off']).\n[REQUIREMENTS] Check 'eval_edg_004_crit_0' failed: Failed: Insufficient matches from term group ['explicitly', 'call', 'out', 'contradiction'].\n[REQUIREMENTS] Check 'eval_edg_004_crit_1' failed: Failed: Insufficient matches from term group ['propose', 'realistic', 'alternative', 'compromises'].\n[REQUIREMENTS] Check 'eval_edg_004_req_1' failed: Failed: Insufficient matches from term group ['explaining', 'why', 'independent'].\n[REQUIREMENTS] Check 'eval_edg_004_req_2' failed: Failed: Insufficient matches from term group ['pragmatic', 'alternative', 'architectural'].\n[REQUIREMENTS] Check 'eval_edg_004_req_3' failed: Failed: Insufficient matches from term group ['demand', 'clear', 'explanation'].\n[CONSTRAINTS] Check 'eval_edg_004_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edg_004_con_1' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edg_004_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    },
+    {
+      "example_id": "eval_edu_002",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[OUTPUT_FORMAT] Check 'eval_edu_002_output_format' failed: Failed: Output format requirement missing (expected one of ['formulations', 'mathematical', 'tutorial', 'illustrated']).\n[REQUIREMENTS] Check 'eval_edu_002_crit_0' failed: Failed: Insufficient matches from term group ['concrete', '2x2', 'matrix', 'worked'].\n[REQUIREMENTS] Check 'eval_edu_002_crit_1' failed: Failed: Insufficient matches from term group ['mandate', 'explaining', 'geometric', 'meaning'].\n[REQUIREMENTS] Check 'eval_edu_002_req_1' failed: Failed: Insufficient matches from term group ['geometric', 'explanation', 'eigenvectors'].\n[REQUIREMENTS] Check 'eval_edu_002_req_3' failed: Failed: Insufficient matches from term group ['demand', 'clear', 'explanation'].\n[CONSTRAINTS] Check 'eval_edu_002_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edu_002_con_1' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edu_002_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    }
+  ],
+  "candidate_results": [
+    {
+      "example_id": "eval_aml_006",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[REQUIREMENTS] Check 'eval_aml_006_crit_0' failed: Failed: Insufficient matches from term group ['enforce', 'chain-of-thought', 'justification', 'before'].\n[REQUIREMENTS] Check 'eval_aml_006_crit_1' failed: Failed: Insufficient matches from term group ['auto-fail', 'triggers', 'regulatory', 'pii'].\n[REQUIREMENTS] Check 'eval_aml_006_req_1' failed: Failed: Insufficient matches from term group ['chain-of-thought', 'justification', 'before'].\n[REQUIREMENTS] Check 'eval_aml_006_req_2' failed: Failed: Insufficient matches from term group ['reference-guided', 'evaluation', 'comparing'].\n[REQUIREMENTS] Check 'eval_aml_006_req_3' failed: Failed: Insufficient matches from term group ['demand', 'calibration', 'checks'].\n[CONSTRAINTS] Check 'eval_aml_006_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_aml_006_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    },
+    {
+      "example_id": "eval_edg_004",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[OUTPUT_FORMAT] Check 'eval_edg_004_output_format' failed: Failed: Output format requirement missing (expected one of ['analysis', 'architectural', 'critique', 'trade-off']).\n[REQUIREMENTS] Check 'eval_edg_004_crit_0' failed: Failed: Insufficient matches from term group ['explicitly', 'call', 'out', 'contradiction'].\n[REQUIREMENTS] Check 'eval_edg_004_crit_1' failed: Failed: Insufficient matches from term group ['propose', 'realistic', 'alternative', 'compromises'].\n[REQUIREMENTS] Check 'eval_edg_004_req_1' failed: Failed: Insufficient matches from term group ['explaining', 'why', 'independent'].\n[REQUIREMENTS] Check 'eval_edg_004_req_2' failed: Failed: Insufficient matches from term group ['pragmatic', 'alternative', 'architectural'].\n[REQUIREMENTS] Check 'eval_edg_004_req_3' failed: Failed: Insufficient matches from term group ['demand', 'clear', 'explanation'].\n[CONSTRAINTS] Check 'eval_edg_004_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edg_004_con_1' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edg_004_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    },
+    {
+      "example_id": "eval_edu_002",
+      "score": 0.4,
+      "feedback": "[CRITICAL FAILURE] The generated prompt violated essential safety or task constraints.\n[OUTPUT_FORMAT] Check 'eval_edu_002_output_format' failed: Failed: Output format requirement missing (expected one of ['formulations', 'mathematical', 'tutorial', 'illustrated']).\n[REQUIREMENTS] Check 'eval_edu_002_crit_0' failed: Failed: Insufficient matches from term group ['concrete', '2x2', 'matrix', 'worked'].\n[REQUIREMENTS] Check 'eval_edu_002_crit_1' failed: Failed: Insufficient matches from term group ['mandate', 'explaining', 'geometric', 'meaning'].\n[REQUIREMENTS] Check 'eval_edu_002_req_1' failed: Failed: Insufficient matches from term group ['geometric', 'explanation', 'eigenvectors'].\n[REQUIREMENTS] Check 'eval_edu_002_req_3' failed: Failed: Insufficient matches from term group ['demand', 'clear', 'explanation'].\n[CONSTRAINTS] Check 'eval_edu_002_con_0' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edu_002_con_1' failed: Failed: Constraint was not preserved (No constraint terms matched.).\n[CONSTRAINTS] Check 'eval_edu_002_con_2' failed: Failed: Constraint was not preserved (No constraint terms matched.).",
+      "objective_scores": {
+        "deterministic": 0.4
+      },
+      "valid_structure": true
+    }
+  ],
+  "comparison": {
+    "baseline_mean_score": 0.4,
+    "candidate_mean_score": 0.4,
+    "absolute_score_diff": 0.0,
+    "relative_change_pct": 0.0,
+    "baseline_critical_failures": 3,
+    "candidate_critical_failures": 3,
+    "instructions_changed": false,
+    "evaluation_examples_count": 3
+  }
+}
