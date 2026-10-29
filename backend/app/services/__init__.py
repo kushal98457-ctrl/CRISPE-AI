@@ -1,5 +1,13 @@
 """Backend domain and application services for CRISPE-AI."""
 
+from app.services.artifact_storage import (
+    ArtifactStorageService,
+    get_artifact_storage_service,
+)
+from app.services.candidate_persistence import (
+    CandidatePersistenceService,
+    get_candidate_persistence_service,
+)
 from app.services.embedding_service import (
     EmbeddingService,
     get_embedding_service,
@@ -31,6 +39,10 @@ from app.services.semantic_search import (
 )
 
 __all__ = [
+    "ArtifactStorageService",
+    "get_artifact_storage_service",
+    "CandidatePersistenceService",
+    "get_candidate_persistence_service",
     "CrispeGenerationService",
     "get_generation_service",
     "get_generation_service_dependency",

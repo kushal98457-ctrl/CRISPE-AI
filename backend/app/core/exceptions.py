@@ -437,3 +437,36 @@ class JobNotCancellableError(OptimizationJobError):
         )
 
 
+class CandidateNotFoundError(OptimizationJobError):
+    """Raised when a prompt candidate is not found or is inaccessible (Step 27)."""
+
+    def __init__(self, candidate_id: str) -> None:
+        super().__init__(
+            message=f"Prompt candidate '{candidate_id}' not found.",
+            status_code=404,
+            error_code="CANDIDATE_NOT_FOUND",
+        )
+
+
+class HoldoutLeakageError(OptimizationJobError):
+    """Raised when an attempt is made to evaluate or persist candidate results on the sealed holdout split (Step 27)."""
+
+    def __init__(self, message: str = "Evaluating or persisting results against the final holdout split is strictly prohibited.") -> None:
+        super().__init__(
+            message=message,
+            status_code=400,
+            error_code="HOLDOUT_LEAKAGE_FORBIDDEN",
+        )
+
+
+class ArtifactStorageError(CRISPEError):
+    """Raised when artifact writing, reading, or path verification fails (Step 27)."""
+
+    def __init__(self, message: str, original_error: Optional[Exception] = None) -> None:
+        super().__init__(message)
+        self.status_code = 500
+        self.error_code = "ARTIFACT_STORAGE_ERROR"
+        self.original_error = original_error
+
+
+

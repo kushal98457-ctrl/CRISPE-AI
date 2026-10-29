@@ -267,3 +267,26 @@ python -m app.workers.optimization_worker --run-once
 pytest tests/test_optimization_job.py -v
 ```
 *(16 passed in ~16s)*
+
+---
+
+## 🧬 Persistent Candidate Versioning & Optimization Results (Step 27)
+
+CRISPE-AI provides durable storage for prompt candidate lineage, evaluation records, and artifacts produced by the Self-Evolving Prompt Engine:
+
+- **Immutable Prompt Candidates (`prompt_candidates`):** Preserves exact instruction text snapshots, parent-child mutation lineage (`parent_candidate_id`), target model checkpoint, and cryptographic SHA-256 digests (`content_hash`) preventing duplicate insertions across retries.
+- **Separate Evaluation Persistence (`candidate_evaluations`):** Evaluates candidates independently across authorized dataset splits (`train`, `val`). Persists both overall aggregate metrics and detailed per-example scoring with pass/fail indicators and sanitized judge feedback.
+- **Strict Final Holdout Protection:** Database `CHECK` constraint (`dataset_split NOT IN ('test', 'holdout', 'final_holdout')`) and service-layer validation strictly prohibit evaluating or persisting candidate results against the sealed benchmark partition.
+- **Safe Artifact Storage (`ArtifactStorageService`):** Atomically stores serialized program states, validation comparisons, and instruction diffs under an isolated root directory with path-traversal blocking and uniform relative URNs (`artifact://...`).
+- **Tenant Isolation:** Access to candidate snapshots, evaluations, and job result summaries is strictly scoped to the job's owning security principal. Cross-tenant queries return 404.
+- **Read-Only API Endpoints:**
+  - `GET /api/v1/optimization/jobs/{job_id}/candidates` (Paginated candidate list)
+  - `GET /api/v1/optimization/candidates/{candidate_id}` (Candidate detail & instruction snapshot)
+  - `GET /api/v1/optimization/candidates/{candidate_id}/evaluations` (Evaluation records & metrics)
+  - `GET /api/v1/optimization/jobs/{job_id}/results` (Optimization summary & candidate comparison)
+
+### Run Candidate Persistence Tests:
+```powershell
+pytest tests/test_candidate_persistence.py -v
+```
+*(12 passed in ~16s)*

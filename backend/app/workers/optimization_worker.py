@@ -32,6 +32,16 @@ from app.dspy_modules.experiment_config import GepaExperimentConfig
 from app.dspy_modules.experiment_runner import GepaExperimentResult, GepaExperimentRunner
 from app.models.optimization_job import OptimizationJob
 from app.schemas.optimization_job import JobStatus
+from app.schemas.prompt_candidate import (
+    CandidateLifecycleStatus,
+    CandidateType,
+    EvaluationType,
+)
+from app.services.artifact_storage import ArtifactStorageService, get_artifact_storage_service
+from app.services.candidate_persistence import (
+    CandidatePersistenceService,
+    get_candidate_persistence_service,
+)
 from app.services.optimization_job import OptimizationJobService, get_optimization_job_service
 
 logger = get_logger("optimization_worker")
@@ -44,6 +54,8 @@ class OptimizationWorker:
         self,
         worker_id: Optional[str] = None,
         job_service: Optional[OptimizationJobService] = None,
+        candidate_service: Optional[CandidatePersistenceService] = None,
+        artifact_storage: Optional[ArtifactStorageService] = None,
         session_factory: Optional[async_sessionmaker[AsyncSession]] = None,
         settings: Optional[Settings] = None,
         poll_interval: float = 2.0,
@@ -52,6 +64,8 @@ class OptimizationWorker:
     ) -> None:
         self.worker_id = worker_id or f"worker_{uuid.uuid4().hex[:8]}"
         self.job_service = job_service or get_optimization_job_service()
+        self.candidate_service = candidate_service or get_candidate_persistence_service()
+        self.artifact_storage = artifact_storage or get_artifact_storage_service()
         self.session_factory = session_factory or get_session_factory()
         self.settings = settings or get_settings()
         self.poll_interval = poll_interval
@@ -181,6 +195,168 @@ class OptimizationWorker:
                 "candidate_status": "EXPERIMENTAL_CANDIDATE",
                 "is_promoted": False,
             }
+
+            # Persist artifacts and candidate records (Step 27)
+            urn_program: Optional[str] = None
+            urn_comparison: Optional[str] = None
+            urn_diff: Optional[str] = None
+
+            try:
+                # 1. Validation comparison JSON
+                val_comparison_payload = {
+                    "job_id": str(job_id),
+                    "baseline_results": exp_result.baseline_summary.get("per_example", []),
+                    "candidate_results": exp_result.candidate_summary.get("per_example", []),
+                    "comparison": exp_result.comparison,
+                }
+                urn_comparison = self.artifact_storage.write_artifact(
+                    f"jobs/{job_id}/validation_comparison.json",
+                    val_comparison_payload,
+                )
+
+                # 2. Instruction diff Markdown
+                cand_inst_val = getattr(exp_result, "candidate_instruction", None)
+                base_inst_val = getattr(exp_result, "baseline_instruction", None)
+                if cand_inst_val:
+                    diff_text = (
+                        f"# CRISPE-AI Instruction Diff\n"
+                        f"Job ID: {job_id}\n\n"
+                        f"## Baseline Instruction\n```text\n{base_inst_val}\n```\n\n"
+                        f"## Optimized Candidate Instruction\n```text\n{cand_inst_val}\n```\n"
+                    )
+                    urn_diff = self.artifact_storage.write_artifact(
+                        f"jobs/{job_id}/instruction_diff.md",
+                        diff_text,
+                    )
+
+                # 3. Candidate program state
+                candidate_state = {
+                    "job_id": str(job_id),
+                    "model_id": job.generation_model_id,
+                    "dataset_version": job.dataset_version,
+                    "instruction": cand_inst_val or base_inst_val,
+                }
+                urn_program = self.artifact_storage.write_artifact(
+                    f"jobs/{job_id}/candidate_program.json",
+                    candidate_state,
+                )
+            except Exception as art_err:
+                logger.warning("Error saving artifact files for job '%s': %s", job_id, art_err)
+
+            # Persist Candidates and Evaluation records in database (Step 27)
+            async with self.session_factory() as session:
+                # Baseline Candidate
+                base_inst = getattr(exp_result, "baseline_instruction", None)
+                if not base_inst:
+                    try:
+                        from app.dspy_modules.program import CrispeGenerationProgram
+                        base_inst = CrispeGenerationProgram().predictor.signature.instructions
+                    except Exception:
+                        base_inst = "Generate a CRISPE prompt."
+
+                baseline_candidate = await self.candidate_service.save_candidate(
+                    session=session,
+                    job_id=job_id,
+                    instruction_text=base_inst,
+                    candidate_type=CandidateType.BASELINE.value,
+                    lifecycle_status=CandidateLifecycleStatus.EVALUATED.value,
+                    model_id=job.generation_model_id,
+                    dataset_version=job.dataset_version,
+                    provenance_metadata={"role": "baseline", "seed": job.seed},
+                )
+
+                # Baseline aggregate evaluation
+                base_mean = exp_result.baseline_summary.get("mean_score", 0.0)
+                eval_type = EvaluationType.COMBINED.value if job.enable_model_judge else EvaluationType.DETERMINISTIC.value
+                await self.candidate_service.save_evaluation(
+                    session=session,
+                    candidate_id=baseline_candidate.id,
+                    job_id=job_id,
+                    evaluation_type=eval_type,
+                    dataset_split="val",
+                    dataset_version=job.dataset_version,
+                    example_id="__aggregate__",
+                    metrics={
+                        "mean_score": base_mean,
+                        "valid_structure_rate": exp_result.baseline_summary.get("valid_structure_rate", 0.0),
+                        "critical_failure_count": exp_result.baseline_summary.get("critical_failure_count", 0),
+                    },
+                    passed=base_mean >= 0.70,
+                    is_critical_failure=exp_result.baseline_summary.get("critical_failure_count", 0) > 0,
+                )
+
+                # Baseline per-example evaluations
+                for ex in exp_result.baseline_summary.get("per_example", []):
+                    await self.candidate_service.save_evaluation(
+                        session=session,
+                        candidate_id=baseline_candidate.id,
+                        job_id=job_id,
+                        evaluation_type=eval_type,
+                        dataset_split="val",
+                        dataset_version=job.dataset_version,
+                        example_id=ex["example_id"],
+                        metrics={"score": ex["score"], **(ex.get("objective_scores") or {})},
+                        passed=ex["score"] >= 0.70,
+                        is_critical_failure=ex["score"] <= 0.40,
+                        sanitized_feedback=ex.get("feedback"),
+                    )
+
+                # Optimized Candidate
+                cand_inst = getattr(exp_result, "candidate_instruction", None) or base_inst
+                opt_candidate = await self.candidate_service.save_candidate(
+                    session=session,
+                    job_id=job_id,
+                    instruction_text=cand_inst,
+                    parent_candidate_id=baseline_candidate.id,
+                    candidate_type=CandidateType.OPTIMIZED.value,
+                    lifecycle_status=CandidateLifecycleStatus.EVALUATED.value,
+                    model_id=job.generation_model_id,
+                    dataset_version=job.dataset_version,
+                    provenance_metadata={
+                        "optimizer": "gepa",
+                        "status": exp_result.status,
+                        "instructions_changed": exp_result.comparison.get("instructions_changed", False),
+                    },
+                    artifact_ref=urn_program,
+                )
+
+                # Optimized aggregate evaluation
+                cand_mean = exp_result.candidate_summary.get("mean_score", 0.0)
+                await self.candidate_service.save_evaluation(
+                    session=session,
+                    candidate_id=opt_candidate.id,
+                    job_id=job_id,
+                    evaluation_type=eval_type,
+                    dataset_split="val",
+                    dataset_version=job.dataset_version,
+                    example_id="__aggregate__",
+                    metrics={
+                        "mean_score": cand_mean,
+                        "valid_structure_rate": exp_result.candidate_summary.get("valid_structure_rate", 0.0),
+                        "critical_failure_count": exp_result.candidate_summary.get("critical_failure_count", 0),
+                    },
+                    passed=cand_mean >= 0.70,
+                    is_critical_failure=exp_result.candidate_summary.get("critical_failure_count", 0) > 0,
+                    artifact_ref=urn_comparison,
+                )
+
+                # Optimized per-example evaluations
+                for ex in exp_result.candidate_summary.get("per_example", []):
+                    await self.candidate_service.save_evaluation(
+                        session=session,
+                        candidate_id=opt_candidate.id,
+                        job_id=job_id,
+                        evaluation_type=eval_type,
+                        dataset_split="val",
+                        dataset_version=job.dataset_version,
+                        example_id=ex["example_id"],
+                        metrics={"score": ex["score"], **(ex.get("objective_scores") or {})},
+                        passed=ex["score"] >= 0.70,
+                        is_critical_failure=ex["score"] <= 0.40,
+                        sanitized_feedback=ex.get("feedback"),
+                    )
+
+                await session.commit()
 
             if cancellation_signaled.is_set():
                 final_status = JobStatus.CANCELLED

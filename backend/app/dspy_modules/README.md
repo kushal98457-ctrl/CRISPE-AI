@@ -26,6 +26,8 @@ The `app.dspy_modules` package provides a programmable, typed DSPy program, GEPA
 | [`verify_gepa_compat.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/verify_gepa_compat.py) | Standalone verification script executing 14 diagnostic compatibility checks across runtime, imports, models, evaluators, and GEPA. |
 | [`optimization_worker.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/workers/optimization_worker.py) | Durable background worker executing prompt optimization jobs detached from HTTP requests with atomic claiming and lease fencing (Step 26). |
 | [`optimization_job.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/optimization_job.py) | Job lifecycle service managing job creation, state transitions, cooperative cancellation, and persistent usage recovery (Step 26). |
+| [`candidate_persistence.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/candidate_persistence.py) | Persistent candidate versioning, evaluation records, deduplication by content hash, and holdout protection (Step 27). |
+| [`artifact_storage.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/artifact_storage.py) | Atomic, traversal-safe filesystem artifact persistence under an isolated root directory with relative URNs (Step 27). |
 
 ---
 
@@ -143,6 +145,8 @@ python -m app.dspy_modules.run_gepa_experiment --mock --train-size 5 --val-size 
 
 ### Automated Unit & Integration Tests (Zero Real API Credits):
 ```powershell
+pytest tests/test_candidate_persistence.py -v
+pytest tests/test_optimization_job.py -v
 pytest tests/test_resource_budget.py -v
 pytest tests/test_gepa_experiment.py -v
 pytest tests/test_gepa_compatibility.py -v
@@ -152,4 +156,4 @@ pytest tests/test_gepa_compatibility.py -v
 ```powershell
 pytest tests -q
 ```
-*(346 tests passing, 6 skipped)*
+*(374 tests passing, 6 skipped)*

@@ -16,6 +16,17 @@ from app.schemas.embedding import (
 )
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.health import HealthResponse, ReadinessResponse
+from app.schemas.prompt_candidate import (
+    CandidateDetailResponse,
+    CandidateEvaluationsResponse,
+    CandidateLifecycleStatus,
+    CandidateSummaryResponse,
+    CandidateType,
+    EvaluationRecordResponse,
+    EvaluationType,
+    JobOptimizationResultsResponse,
+    PaginatedCandidatesResponse,
+)
 from app.schemas.semantic_search import (
     SemanticMemorySearchRequest,
     SemanticMemorySearchResultItem,
@@ -46,4 +57,13 @@ __all__ = [
     "SemanticMemorySearchRequest",
     "SemanticMemorySearchResultItem",
     "SemanticMemorySearchResponse",
+    "CandidateType",
+    "CandidateLifecycleStatus",
+    "EvaluationType",
+    "CandidateSummaryResponse",
+    "CandidateDetailResponse",
+    "PaginatedCandidatesResponse",
+    "EvaluationRecordResponse",
+    "CandidateEvaluationsResponse",
+    "JobOptimizationResultsResponse",
 ]

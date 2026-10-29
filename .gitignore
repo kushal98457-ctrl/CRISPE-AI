@@ -18,3 +18,8 @@ __pycache__/
 .env.local
 backend/.env
 backend/.env.local
+
+# Local Test Output & Ephemeral Artifacts
+backend/data/
+backend/app/evaluation/experiments/job_*
+backend/app/evaluation/experiments/gepa_pilot_*

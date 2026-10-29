@@ -139,6 +139,8 @@ class GepaExperimentResult:
         status: str,
         artifacts_saved: List[str],
         error_message: Optional[str] = None,
+        baseline_instruction: str = "",
+        candidate_instruction: str = "",
     ) -> None:
         self.config = config
         self.subsets_metadata = subsets_metadata
@@ -149,6 +151,8 @@ class GepaExperimentResult:
         self.status = status
         self.artifacts_saved = artifacts_saved
         self.error_message = error_message
+        self.baseline_instruction = baseline_instruction
+        self.candidate_instruction = candidate_instruction
 
 
 # =============================================================================
@@ -487,4 +491,6 @@ class GepaExperimentRunner:
             status=status,
             artifacts_saved=artifacts_saved,
             error_message=error_msg,
+            baseline_instruction=base_instructions,
+            candidate_instruction=candidate_instructions,
         )

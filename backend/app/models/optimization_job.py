@@ -32,6 +32,7 @@ from app.schemas.optimization_job import (
 
 if TYPE_CHECKING:
     from app.models.principal import Principal
+    from app.models.prompt_candidate import PromptCandidate
 
 
 class OptimizationJob(Base, TimestampMixin):
@@ -321,6 +322,12 @@ class OptimizationJob(Base, TimestampMixin):
     owner: Mapped["Principal"] = relationship(
         "Principal",
         back_populates="optimization_jobs",
+    )
+    candidates: Mapped[List["PromptCandidate"]] = relationship(
+        "PromptCandidate",
+        back_populates="job",
+        cascade="all, delete-orphan",
+        order_by="PromptCandidate.created_at",
     )
 
     def to_response_dto(self) -> OptimizationJobResponse:

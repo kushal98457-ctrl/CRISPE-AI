@@ -49,6 +49,12 @@ class Settings(BaseSettings):
         description="Allowed frontend origin URLs for CORS",
     )
 
+    # Optimization Candidate Artifact Storage (Step 27)
+    ARTIFACT_STORAGE_DIR: str = Field(
+        default="data/artifacts",
+        description="Local root directory for persistent candidate and experiment artifacts",
+    )
+
     # --------------------------------------------------------------------------
     # Gemini AI Provider Configuration (Step 6)
     # --------------------------------------------------------------------------
