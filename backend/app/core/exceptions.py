@@ -384,3 +384,56 @@ class IncompatibleEmbeddingError(SemanticSearchError):
             original_error=original_error,
         )
 
+
+class OptimizationJobError(CRISPEError):
+    """Base exception for optimization job lifecycle and worker execution errors."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 500,
+        error_code: str = "OPTIMIZATION_JOB_ERROR",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.original_error = original_error
+
+
+class OptimizationJobNotFoundError(OptimizationJobError):
+    """Raised when a requested optimization job does not exist or is inaccessible."""
+
+    def __init__(self, job_id: str) -> None:
+        super().__init__(
+            message=f"Optimization job '{job_id}' not found.",
+            status_code=404,
+            error_code="OPTIMIZATION_JOB_NOT_FOUND",
+        )
+
+
+class InvalidJobStateTransitionError(OptimizationJobError):
+    """Raised when an illegal job state transition is attempted."""
+
+    def __init__(self, current_status: str, requested_status: str) -> None:
+        super().__init__(
+            message=(
+                f"Cannot transition optimization job from status '{current_status}' "
+                f"to '{requested_status}'."
+            ),
+            status_code=409,
+            error_code="INVALID_JOB_STATE_TRANSITION",
+        )
+
+
+class JobNotCancellableError(OptimizationJobError):
+    """Raised when attempting to cancel a job that is already in a terminal state."""
+
+    def __init__(self, current_status: str) -> None:
+        super().__init__(
+            message=f"Optimization job in terminal state '{current_status}' cannot be cancelled.",
+            status_code=409,
+            error_code="JOB_NOT_CANCELLABLE",
+        )
+
+

@@ -13,6 +13,7 @@ from app.api.routes import health
 from app.core.config import Settings, get_settings
 from app.core.exceptions import (
     DatabaseError,
+    OptimizationJobError,
     PromptGenerationError,
     ProviderError,
     SecurityError,
@@ -225,6 +226,29 @@ def create_application(settings: Settings | None = None) -> FastAPI:
         request_id = getattr(request.state, "request_id", "-")
         logger.warning(
             "Semantic search error during request [%s]: code=%s msg=%s",
+            request_id,
+            exc.error_code,
+            exc.message,
+        )
+        response_content = ErrorResponse(
+            status_code=exc.status_code,
+            error_code=exc.error_code,
+            message=exc.message,
+            request_id=request_id,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=response_content.model_dump(),
+            headers={"X-Request-ID": request_id},
+        )
+
+    @app.exception_handler(OptimizationJobError)
+    async def optimization_job_exception_handler(
+        request: Request, exc: OptimizationJobError
+    ) -> JSONResponse:
+        request_id = getattr(request.state, "request_id", "-")
+        logger.warning(
+            "Optimization job error during request [%s]: code=%s msg=%s",
             request_id,
             exc.error_code,
             exc.message,

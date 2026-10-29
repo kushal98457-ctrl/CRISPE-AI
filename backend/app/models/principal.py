@@ -11,6 +11,7 @@ from app.core.security import AuthorizedPrincipal
 from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.optimization_job import OptimizationJob
     from app.models.prompt_record import PromptRecord
 
 
@@ -60,6 +61,14 @@ class Principal(Base, TimestampMixin):
     # 1-to-many relationship with owned prompt records
     prompts: Mapped[List["PromptRecord"]] = relationship(
         "PromptRecord",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    # 1-to-many relationship with owned optimization jobs
+    optimization_jobs: Mapped[List["OptimizationJob"]] = relationship(
+        "OptimizationJob",
         back_populates="owner",
         cascade="all, delete-orphan",
         passive_deletes=True,

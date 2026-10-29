@@ -24,6 +24,8 @@ The `app.dspy_modules` package provides a programmable, typed DSPy program, GEPA
 | [`service.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/service.py) | Provides [`DspyCrispeGenerationService`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/service.py#L35-L135), providing functional parity with [`CrispeGenerationService`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/generation_service.py#L51-L157) without altering existing endpoints. |
 | [`evaluation_adapter.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/evaluation_adapter.py) | Connects DSPy predictions to Steps 20 & 21 evaluators while strictly separating generator inputs from hidden evaluation criteria. |
 | [`verify_gepa_compat.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/verify_gepa_compat.py) | Standalone verification script executing 14 diagnostic compatibility checks across runtime, imports, models, evaluators, and GEPA. |
+| [`optimization_worker.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/workers/optimization_worker.py) | Durable background worker executing prompt optimization jobs detached from HTTP requests with atomic claiming and lease fencing (Step 26). |
+| [`optimization_job.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/optimization_job.py) | Job lifecycle service managing job creation, state transitions, cooperative cancellation, and persistent usage recovery (Step 26). |
 
 ---
 

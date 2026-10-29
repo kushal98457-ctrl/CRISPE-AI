@@ -1,7 +1,7 @@
 """Root API v1 router aggregator."""
 
 from fastapi import APIRouter
-from app.api.routes import health, memory, prompts
+from app.api.routes import health, memory, optimization, prompts
 
 api_router = APIRouter()
 
@@ -13,3 +13,6 @@ api_router.include_router(prompts.router)
 
 # Register Semantic Prompt Memory search router
 api_router.include_router(memory.router)
+
+# Register Self-Evolving Optimization Jobs router
+api_router.include_router(optimization.router)

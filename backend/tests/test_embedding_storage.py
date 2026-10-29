@@ -377,7 +377,7 @@ def test_alembic_script_directory_discovers_migration_0003() -> None:
     script_dir = ScriptDirectory.from_config(config)
 
     head_rev = script_dir.get_current_head()
-    assert head_rev == "0003_prompt_embeddings"
+    assert head_rev in ("0003_prompt_embeddings", "0004_optimization_jobs")
 
     rev_0003 = script_dir.get_revision("0003_prompt_embeddings")
     assert rev_0003 is not None

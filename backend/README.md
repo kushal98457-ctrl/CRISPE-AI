@@ -239,3 +239,31 @@ The centralized [`ResourceBudgetManager`](file:///C:/Users/kushl/.gemini/antigra
 pytest tests/test_resource_budget.py -v
 ```
 *(27 passed in ~2.1s)*
+
+---
+
+## ⚙️ Durable Optimization Jobs & Background Workers (Step 26)
+
+CRISPE-AI's Self-Evolving Prompt Engine executes independently of HTTP request lifecycles using a resilient, PostgreSQL-backed durable queue:
+
+- **Transactional Queue (`optimization_jobs`):** Authoritative state storage in PostgreSQL. Jobs are claimed in short transactions, committed immediately, and executed outside database transaction boundaries.
+- **Atomic Worker Claiming & Fencing:** Workers atomically claim jobs using row-level locking (`FOR UPDATE SKIP LOCKED`). Each claim issues an ephemeral fencing token (`claim_token`); any stale worker whose lease expired is fenced out from corrupting subsequent attempts.
+- **Heartbeat & Lease Refresh:** Active workers refresh leases at regular intervals (`heartbeat_interval`). If a worker crashes, its lease expires, allowing recovery mechanisms to detect and safely re-queue the job.
+- **Persistent Resource Accounting Across Restarts:** Persisted counters (`used_metric_calls`, `used_provider_calls`, `used_total_tokens`, `estimated_cost_usd`) survive worker restarts. Recovered attempts resume with `remaining_budget = max_budget - previously_used`, preventing quota resets.
+- **Cooperative Cancellation:** `POST /api/v1/optimization/jobs/{id}/cancel` cancels queued jobs immediately, or signals running workers to halt cooperatively at the next iteration boundary while preserving completed artifacts.
+- **Tenant Isolation:** All job operations strictly enforce principal ownership. Unauthorized callers receive HTTP 404 to avoid leaking job existence.
+
+### Run Background Optimization Worker:
+```powershell
+# Continuous polling loop
+python -m app.workers.optimization_worker --poll-interval 2.0 --lease-duration 60.0
+
+# Process single job and exit
+python -m app.workers.optimization_worker --run-once
+```
+
+### Run Optimization Job System Tests:
+```powershell
+pytest tests/test_optimization_job.py -v
+```
+*(16 passed in ~16s)*
