@@ -32,6 +32,10 @@ from app.services.embedding_service import (
     EmbeddingService,
     get_embedding_service,
 )
+from app.services.memory_ranking import (
+    MemoryRanker,
+    get_memory_ranker,
+)
 
 logger = get_logger("semantic_search_service")
 
@@ -42,10 +46,12 @@ class SemanticSearchService:
     def __init__(
         self,
         embedding_service: Optional[EmbeddingService] = None,
+        ranker: Optional[MemoryRanker] = None,
         settings: Optional[Settings] = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.embedding_service = embedding_service or get_embedding_service(settings=self.settings)
+        self.ranker = ranker or get_memory_ranker()
 
     def _validate_embedding_compatibility(
         self,
@@ -81,6 +87,7 @@ class SemanticSearchService:
         min_similarity: Optional[float] = None,
         task_type: Optional[str] = None,
         config_version: Optional[str] = None,
+        enable_ranking: bool = True,
     ) -> SemanticSearchResponse:
         """Execute semantic prompt retrieval for an authenticated principal.
 
@@ -153,11 +160,17 @@ class SemanticSearchService:
         self._validate_embedding_compatibility(embedding_result, query_obj.config_version)
 
         # 5. Execute owner-scoped vector retrieval via repository
+        # Over-fetch candidate pool for re-ranking (min 15, max 50, or bounded 3x limit)
+        candidate_limit = (
+            min(max(query_obj.limit * 3, 15), 50)
+            if enable_ranking
+            else query_obj.limit
+        )
         raw_matches = await EmbeddingRepository.search_similar_prompts_for_owner(
             session=session,
             principal=principal,
             query_vector=embedding_result.vector,
-            limit=query_obj.limit,
+            limit=candidate_limit,
             min_similarity=query_obj.min_similarity,
             task_type=query_obj.task_type,
             config_version=query_obj.config_version,
@@ -183,6 +196,17 @@ class SemanticSearchService:
                 )
             )
 
+        # 7. Apply multi-signal ranking if enabled
+        if enable_ranking and items and self.ranker:
+            items = self.ranker.rank_candidates(
+                query_text=query_obj.query,
+                candidates=items,
+                query_task_type=query_obj.task_type,
+                top_k=query_obj.limit,
+            )
+        else:
+            items = items[: query_obj.limit]
+
         logger.info(
             "Semantic search executed for principal %s: query='%s', matched %d prompts (limit=%d)",
             principal.id,
@@ -203,10 +227,15 @@ class SemanticSearchService:
 
 def get_semantic_search_service(
     embedding_service: Optional[EmbeddingService] = None,
+    ranker: Optional[MemoryRanker] = None,
     settings: Optional[Settings] = None,
 ) -> SemanticSearchService:
     """Factory creating a SemanticSearchService instance."""
-    return SemanticSearchService(embedding_service=embedding_service, settings=settings)
+    return SemanticSearchService(
+        embedding_service=embedding_service,
+        ranker=ranker,
+        settings=settings,
+    )
 
 
 def get_semantic_search_service_dependency() -> SemanticSearchService:

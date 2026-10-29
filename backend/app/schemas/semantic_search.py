@@ -1,7 +1,7 @@
 """Data transfer objects and request/response contracts for Semantic Prompt Memory search."""
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Dict, List, Optional
 import uuid
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -105,6 +105,16 @@ class SemanticSearchItem(BaseModel):
         ge=-1.0,
         le=1.0,
         description="Derived cosine similarity score (1.0 - distance).",
+    )
+    ranking_score: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Composite multi-signal relevance ranking score.",
+    )
+    score_breakdown: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Detailed constituent signal scores (semantic, category, lexical, structural).",
     )
     config_version: str = Field(
         ...,
@@ -233,6 +243,16 @@ class SemanticMemorySearchResultItem(BaseModel):
         le=1.0,
         description="Derived cosine similarity score (1.0 - distance).",
     )
+    ranking_score: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Composite multi-signal relevance ranking score.",
+    )
+    score_breakdown: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Detailed constituent signal scores (semantic, category, lexical, structural).",
+    )
 
 
 class SemanticMemorySearchResponse(BaseModel):
@@ -268,6 +288,8 @@ class SemanticMemorySearchResponse(BaseModel):
                 task_type=item.task_type,
                 distance=item.distance,
                 similarity=item.similarity,
+                ranking_score=item.ranking_score,
+                score_breakdown=item.score_breakdown,
             )
             for item in service_res.items
         ]

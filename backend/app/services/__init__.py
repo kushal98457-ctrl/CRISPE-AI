@@ -10,6 +10,20 @@ from app.services.generation_service import (
     get_generation_service,
     get_generation_service_dependency,
 )
+from app.services.memory_ranking import (
+    MemoryRanker,
+    RankedCandidate,
+    RankingPolicy,
+    get_memory_ranker,
+)
+from app.services.retrieval_metrics import (
+    dcg_at_k,
+    mean_reciprocal_rank,
+    ndcg_at_k,
+    precision_at_k,
+    recall_at_k,
+    reciprocal_rank,
+)
 from app.services.semantic_search import (
     SemanticSearchService,
     get_semantic_search_service,
@@ -26,4 +40,14 @@ __all__ = [
     "SemanticSearchService",
     "get_semantic_search_service",
     "get_semantic_search_service_dependency",
+    "MemoryRanker",
+    "RankingPolicy",
+    "RankedCandidate",
+    "get_memory_ranker",
+    "precision_at_k",
+    "recall_at_k",
+    "reciprocal_rank",
+    "mean_reciprocal_rank",
+    "dcg_at_k",
+    "ndcg_at_k",
 ]
