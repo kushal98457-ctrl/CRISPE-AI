@@ -75,6 +75,35 @@ class Settings(BaseSettings):
         default="gemini-2.5-flash",
         description="Reflection model for DSPy/GEPA optimization diagnostics",
     )
+    EVALUATOR_MODEL: str = Field(
+        default="gemini-2.5-flash",
+        validation_alias=AliasChoices("EVALUATOR_MODEL", "JUDGE_MODEL_ID"),
+        description="LLM-as-a-judge model identifier for model-assisted prompt evaluation",
+    )
+    EVALUATOR_TIMEOUT_SECONDS: float = Field(
+        default=45.0,
+        ge=5.0,
+        le=300.0,
+        description="Request timeout in seconds for evaluation judge model",
+    )
+    EVALUATOR_MAX_RETRIES: int = Field(
+        default=2,
+        ge=0,
+        le=5,
+        description="Maximum retry attempts on transient network or quota errors for judge",
+    )
+    EVALUATOR_TEMPERATURE: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Sampling temperature for judge model (0.0 recommended for deterministic grading)",
+    )
+    EVALUATOR_MAX_CONCURRENCY: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum concurrent judge evaluation requests",
+    )
 
     @property
     def GEMINI_MODEL_ID(self) -> str:
