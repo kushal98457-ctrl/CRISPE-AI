@@ -351,3 +351,36 @@ class PrincipalNotFoundError(SecurityError):
             error_code="PRINCIPAL_NOT_FOUND",
             original_error=original_error,
         )
+
+
+class SemanticSearchError(CRISPEError):
+    """Base exception for semantic prompt memory search failures."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int = 500,
+        error_code: str = "SEMANTIC_SEARCH_ERROR",
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.error_code = error_code
+        self.original_error = original_error
+
+
+class IncompatibleEmbeddingError(SemanticSearchError):
+    """Raised when query or stored vectors do not match configured dimension, model, or version."""
+
+    def __init__(
+        self,
+        message: str,
+        original_error: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=400,
+            error_code="INCOMPATIBLE_EMBEDDING_ERROR",
+            original_error=original_error,
+        )
+

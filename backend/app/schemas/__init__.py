@@ -16,6 +16,11 @@ from app.schemas.embedding import (
 )
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.health import HealthResponse, ReadinessResponse
+from app.schemas.semantic_search import (
+    SemanticSearchItem,
+    SemanticSearchQuery,
+    SemanticSearchResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -32,4 +37,7 @@ __all__ = [
     "EmbeddingBatchResult",
     "EmbeddingTaskType",
     "EmbeddingUsageMetadata",
+    "SemanticSearchQuery",
+    "SemanticSearchItem",
+    "SemanticSearchResponse",
 ]

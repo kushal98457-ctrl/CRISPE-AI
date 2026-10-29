@@ -10,6 +10,11 @@ from app.services.generation_service import (
     get_generation_service,
     get_generation_service_dependency,
 )
+from app.services.semantic_search import (
+    SemanticSearchService,
+    get_semantic_search_service,
+    get_semantic_search_service_dependency,
+)
 
 __all__ = [
     "CrispeGenerationService",
@@ -18,4 +23,7 @@ __all__ = [
     "EmbeddingService",
     "get_embedding_service",
     "get_embedding_service_dependency",
+    "SemanticSearchService",
+    "get_semantic_search_service",
+    "get_semantic_search_service_dependency",
 ]

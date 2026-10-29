@@ -1,5 +1,6 @@
 """Tests for PromptRecord ORM model, repository CRUD operations, and Alembic migration."""
 
+from pathlib import Path
 import uuid
 import pytest
 from sqlalchemy.ext.asyncio import (
@@ -237,7 +238,8 @@ async def test_repository_delete(
 
 def test_alembic_script_directory_discovers_migration() -> None:
     """Alembic ScriptDirectory detects the 0001_initial_prompt_records migration."""
-    cfg = Config("alembic.ini")
+    alembic_ini_path = Path(__file__).resolve().parent.parent / "alembic.ini"
+    cfg = Config(str(alembic_ini_path))
     script = ScriptDirectory.from_config(cfg)
     rev = script.get_revision("0001_prompt_records")
     assert rev is not None

@@ -12,6 +12,7 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from app.core.config import Settings, get_settings
+from app.db.sqlite_compat import compile_binary_sqlite, register_sqlite_vector_compat
 from app.main import create_application
 
 
