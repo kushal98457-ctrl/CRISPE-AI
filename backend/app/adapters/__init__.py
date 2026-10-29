@@ -1,5 +1,10 @@
 """AI Model provider adapters for CRISPE-AI."""
 
+from app.adapters.embedding_adapter import (
+    BaseEmbeddingAdapter,
+    GoogleGenAIEmbeddingAdapter,
+    get_embedding_adapter,
+)
 from app.adapters.gemini_adapter import (
     BaseModelAdapter,
     GeminiModelAdapter,
@@ -14,4 +19,7 @@ __all__ = [
     "ModelGenerationRequest",
     "ModelGenerationResponse",
     "get_model_adapter",
+    "BaseEmbeddingAdapter",
+    "GoogleGenAIEmbeddingAdapter",
+    "get_embedding_adapter",
 ]
