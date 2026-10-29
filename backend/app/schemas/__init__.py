@@ -6,6 +6,14 @@ from app.schemas.crispe import (
     CrispeSections,
     ModelUsageMetadata,
 )
+from app.schemas.embedding import (
+    EmbeddingBatchRequest,
+    EmbeddingBatchResult,
+    EmbeddingRequest,
+    EmbeddingResult,
+    EmbeddingTaskType,
+    EmbeddingUsageMetadata,
+)
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.health import HealthResponse, ReadinessResponse
 
@@ -18,4 +26,10 @@ __all__ = [
     "ModelUsageMetadata",
     "CrispeGenerationRequest",
     "CrispeGenerationResponse",
+    "EmbeddingRequest",
+    "EmbeddingBatchRequest",
+    "EmbeddingResult",
+    "EmbeddingBatchResult",
+    "EmbeddingTaskType",
+    "EmbeddingUsageMetadata",
 ]

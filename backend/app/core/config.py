@@ -157,14 +157,60 @@ class Settings(BaseSettings):
         default=False,
         description="Log executed SQL queries (development/debugging only)",
     )
-    EMBEDDING_MODEL: str = Field(
-        default="gemini-embedding-001",
-        description="Google embedding model identifier",
+    EMBEDDING_PROVIDER: str = Field(
+        default="google-genai",
+        description="Active embedding provider backend name (e.g. google-genai)",
     )
-    EMBEDDING_DIMENSION: int = Field(
+    EMBEDDING_MODEL_ID: str = Field(
+        default="text-embedding-004",
+        validation_alias=AliasChoices("EMBEDDING_MODEL_ID", "EMBEDDING_MODEL"),
+        description="Official Google embedding model checkpoint identifier",
+    )
+    EMBEDDING_DIMENSIONS: int = Field(
         default=768,
-        description="Vector embedding dimension (standardized for pgvector)",
+        validation_alias=AliasChoices("EMBEDDING_DIMENSIONS", "EMBEDDING_DIMENSION"),
+        description="Output vector embedding dimension (768 default for text-embedding-004)",
     )
+    EMBEDDING_CONFIG_VERSION: str = Field(
+        default="v1",
+        description="Semantic memory configuration version distinguishing incompatible vector spaces",
+    )
+    EMBEDDING_SIMILARITY_METRIC: str = Field(
+        default="cosine",
+        description="Vector distance metric for pgvector retrieval (cosine <=> recommended)",
+    )
+    EMBEDDING_MAX_INPUT_TOKENS: int = Field(
+        default=2048,
+        ge=128,
+        le=8192,
+        description="Maximum permitted input tokens for embedding requests",
+    )
+    EMBEDDING_BATCH_SIZE: int = Field(
+        default=32,
+        ge=1,
+        le=100,
+        description="Maximum number of texts processed in a single batch embedding call",
+    )
+    EMBEDDING_TIMEOUT_SECONDS: float = Field(
+        default=10.0,
+        ge=1.0,
+        le=120.0,
+        description="Request timeout in seconds for embedding API operations",
+    )
+    EMBEDDING_API_KEY: Optional[SecretStr] = Field(
+        default=None,
+        description="Optional dedicated API key for embedding calls; falls back to GEMINI_API_KEY if omitted",
+    )
+
+    @property
+    def EMBEDDING_MODEL(self) -> str:
+        """Alias property for EMBEDDING_MODEL_ID (backward compatibility)."""
+        return self.EMBEDDING_MODEL_ID
+
+    @property
+    def EMBEDDING_DIMENSION(self) -> int:
+        """Alias property for EMBEDDING_DIMENSIONS (backward compatibility)."""
+        return self.EMBEDDING_DIMENSIONS
 
     # --------------------------------------------------------------------------
     # Optimization Engine Defaults (Feature A Placeholders)
@@ -195,6 +241,40 @@ class Settings(BaseSettings):
             return [str(origin).strip() for origin in value if str(origin).strip()]
         return ["http://localhost:5173", "http://127.0.0.1:5173"]
 
+    @field_validator("EMBEDDING_DIMENSIONS")
+    @classmethod
+    def validate_embedding_dimensions(cls, value: int) -> int:
+        """Validate embedding dimensions against documented constraints.
+
+        text-embedding-004 supports Matryoshka dimensions (128, 256, 512, 768).
+        """
+        if value <= 0:
+            raise ValueError(f"EMBEDDING_DIMENSIONS must be a positive integer, got {value}")
+        if value > 768:
+            raise ValueError(
+                f"EMBEDDING_DIMENSIONS {value} exceeds the maximum supported dimension (768) "
+                f"for text-embedding-004."
+            )
+        valid_dimensions = {128, 256, 512, 768}
+        if value not in valid_dimensions:
+            raise ValueError(
+                f"EMBEDDING_DIMENSIONS {value} is not a supported dimension for text-embedding-004. "
+                f"Supported dimensions are {sorted(valid_dimensions)}."
+            )
+        return value
+
+    @field_validator("EMBEDDING_SIMILARITY_METRIC")
+    @classmethod
+    def validate_similarity_metric(cls, value: str) -> str:
+        """Validate vector distance similarity metric."""
+        normalized = value.strip().lower()
+        if normalized not in {"cosine", "euclidean", "inner_product"}:
+            raise ValueError(
+                f"EMBEDDING_SIMILARITY_METRIC '{value}' is unsupported. "
+                f"Must be one of: 'cosine', 'euclidean', 'inner_product'."
+            )
+        return normalized
+
     def get_gemini_api_key(self) -> str:
         """
         Safely retrieve the plaintext Gemini API key.
@@ -218,6 +298,24 @@ class Settings(BaseSettings):
         if self.GEMINI_API_KEY is None:
             return False
         return bool(self.GEMINI_API_KEY.get_secret_value().strip())
+
+    def get_embedding_api_key(self) -> str:
+        """Retrieve the plaintext API key for embedding operations.
+
+        Reuses GEMINI_API_KEY if EMBEDDING_API_KEY is not explicitly provided.
+        Raises MissingProviderCredentialError if neither credential is configured.
+        """
+        if self.EMBEDDING_API_KEY is not None:
+            secret = self.EMBEDDING_API_KEY.get_secret_value().strip()
+            if secret:
+                return secret
+        return self.get_gemini_api_key()
+
+    def has_embedding_api_key(self) -> bool:
+        """Check if a valid embedding API key is available without exposing it."""
+        if self.EMBEDDING_API_KEY is not None and self.EMBEDDING_API_KEY.get_secret_value().strip():
+            return True
+        return self.has_gemini_api_key()
 
     def get_database_url(self) -> str:
         """Retrieve and normalize the asynchronous database connection URL."""
@@ -270,8 +368,15 @@ class Settings(BaseSettings):
             "db_max_overflow": self.DB_MAX_OVERFLOW,
             "db_pool_timeout": self.DB_POOL_TIMEOUT,
             "db_pool_recycle": self.DB_POOL_RECYCLE,
-            "embedding_model": self.EMBEDDING_MODEL,
-            "embedding_dimension": self.EMBEDDING_DIMENSION,
+            "embedding_provider": self.EMBEDDING_PROVIDER,
+            "embedding_model": self.EMBEDDING_MODEL_ID,
+            "embedding_dimension": self.EMBEDDING_DIMENSIONS,
+            "embedding_config_version": self.EMBEDDING_CONFIG_VERSION,
+            "embedding_similarity_metric": self.EMBEDDING_SIMILARITY_METRIC,
+            "embedding_max_input_tokens": self.EMBEDDING_MAX_INPUT_TOKENS,
+            "embedding_batch_size": self.EMBEDDING_BATCH_SIZE,
+            "embedding_timeout_seconds": self.EMBEDDING_TIMEOUT_SECONDS,
+            "embedding_api_key_configured": self.has_embedding_api_key(),
             "default_max_iterations": self.DEFAULT_MAX_ITERATIONS,
             "max_budget_usd_per_run": self.MAX_BUDGET_USD_PER_RUN,
             "max_concurrent_runs": self.MAX_CONCURRENT_RUNS,
