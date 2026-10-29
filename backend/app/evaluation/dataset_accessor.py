@@ -9,6 +9,7 @@ Enforces strict partition boundaries:
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Union
 
+from app.core.exceptions import HoldoutAccessRestrictedError
 from app.core.logging import get_logger
 from app.evaluation.schemas import EvaluationExample
 from app.evaluation.split_manifest import (
@@ -20,20 +21,6 @@ from app.evaluation.split_manifest import (
 from app.evaluation.validator import DEFAULT_DATASET_PATH, load_dataset
 
 logger = get_logger("dataset_accessor")
-
-
-class HoldoutAccessRestrictedError(PermissionError):
-    """Raised when an unauthorized attempt is made to access the final holdout partition."""
-
-    def __init__(
-        self,
-        message: str = (
-            "Access to the final holdout partition is strictly restricted. "
-            "Holdout examples are sealed and cannot be accessed during routine "
-            "optimization or baseline runs without explicit authorization (authorized=True)."
-        ),
-    ) -> None:
-        super().__init__(message)
 
 
 class EvaluationDatasetAccessor:

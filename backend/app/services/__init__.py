@@ -17,6 +17,17 @@ from app.services.generation_service import (
     CrispeGenerationService,
     get_generation_service,
     get_generation_service_dependency,
+    invalidate_release_cache,
+    set_cached_active_release,
+    get_cached_active_release,
+)
+from app.services.prompt_release import (
+    PromptReleaseService,
+    get_prompt_release_service,
+)
+from app.services.release_validation import (
+    ReleaseValidationService,
+    get_release_validation_service,
 )
 from app.services.memory_ranking import (
     MemoryRanker,
@@ -46,6 +57,13 @@ __all__ = [
     "CrispeGenerationService",
     "get_generation_service",
     "get_generation_service_dependency",
+    "invalidate_release_cache",
+    "set_cached_active_release",
+    "get_cached_active_release",
+    "PromptReleaseService",
+    "get_prompt_release_service",
+    "ReleaseValidationService",
+    "get_release_validation_service",
     "EmbeddingService",
     "get_embedding_service",
     "get_embedding_service_dependency",

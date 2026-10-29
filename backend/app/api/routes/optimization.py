@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import ReleaseNotFoundError
 from app.core.logging import get_logger
 from app.core.security import AuthorizedPrincipal, get_current_principal
 from app.db.session import get_db_session
@@ -22,6 +23,16 @@ from app.schemas.prompt_candidate import (
     JobOptimizationResultsResponse,
     PaginatedCandidatesResponse,
 )
+from app.schemas.prompt_release import (
+    CreateReleaseRequest,
+    PaginatedReleasesResponse,
+    PromoteReleaseRequest,
+    ReleaseDetailResponse,
+    ReleaseSummaryResponse,
+    ReleaseValidationPolicy,
+    ReleaseValidationReport,
+    RollbackReleaseRequest,
+)
 from app.services.candidate_persistence import (
     CandidatePersistenceService,
     get_candidate_persistence_service,
@@ -29,6 +40,10 @@ from app.services.candidate_persistence import (
 from app.services.optimization_job import (
     OptimizationJobService,
     get_optimization_job_service,
+)
+from app.services.prompt_release import (
+    PromptReleaseService,
+    get_prompt_release_service,
 )
 
 logger = get_logger("optimization_routes")
@@ -361,4 +376,239 @@ async def get_job_optimization_results(
         principal=principal,
         job_id=job_id,
     )
+
+
+# =============================================================================
+# Prompt Release Management Endpoints (Step 28)
+# =============================================================================
+
+@router.post(
+    "/releases",
+    response_model=ReleaseDetailResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new draft prompt release from an evaluated candidate",
+    description="Packages an immutable candidate snapshot into a versioned release draft ready for validation.",
+    responses={
+        status.HTTP_201_CREATED: {
+            "description": "Release draft created successfully.",
+            "model": ReleaseDetailResponse,
+        },
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Prompt candidate not found.", "model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"description": "Release version already exists.", "model": ErrorResponse},
+    },
+)
+async def create_release(
+    request: CreateReleaseRequest,
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseDetailResponse:
+    """Create a new versioned prompt release draft."""
+    release = await release_service.create_release(
+        session=session,
+        request=request,
+        principal_id=principal.id,
+    )
+    return release.to_detail_dto()
+
+
+@router.get(
+    "/active-release",
+    response_model=ReleaseDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get current active production prompt release",
+    description="Retrieves the single prompt release currently governing production CRISPE prompt generation.",
+    responses={
+        status.HTTP_200_OK: {"description": "Active release retrieved.", "model": ReleaseDetailResponse},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "No active release found.", "model": ErrorResponse},
+    },
+)
+async def get_active_release(
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseDetailResponse:
+    """Retrieve the single active production prompt release."""
+    release = await release_service.get_active_release(session=session)
+    if release is None:
+        raise ReleaseNotFoundError("active")
+    return release.to_detail_dto()
+
+
+@router.get(
+    "/releases",
+    response_model=PaginatedReleasesResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List versioned prompt releases",
+    description="Retrieves paginated release summaries with optional lifecycle status filtering.",
+    responses={
+        status.HTTP_200_OK: {"description": "Releases list retrieved.", "model": PaginatedReleasesResponse},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+    },
+)
+async def list_releases(
+    status: Optional[str] = Query(default=None, description="Filter by lifecycle status (draft, validated, active, superseded, rolled_back)"),
+    limit: int = Query(default=50, ge=1, le=100, description="Page limit"),
+    offset: int = Query(default=0, ge=0, description="Page offset"),
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> PaginatedReleasesResponse:
+    """List versioned prompt releases with pagination."""
+    releases, total = await release_service.list_releases(
+        session=session,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return PaginatedReleasesResponse(
+        items=[r.to_summary_dto() for r in releases],
+        total_count=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/releases/{release_id}",
+    response_model=ReleaseDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get prompt release details and audit state",
+    description="Retrieves complete release metadata, instruction text, and validation results.",
+    responses={
+        status.HTTP_200_OK: {"description": "Release details retrieved.", "model": ReleaseDetailResponse},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Release not found.", "model": ErrorResponse},
+    },
+)
+async def get_release(
+    release_id: uuid.UUID,
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseDetailResponse:
+    """Retrieve full details of a specific prompt release."""
+    release = await release_service.get_release(session=session, release_id=release_id)
+    return release.to_detail_dto()
+
+
+@router.post(
+    "/releases/{release_id}/validate",
+    response_model=ReleaseValidationReport,
+    status_code=status.HTTP_200_OK,
+    summary="Run validation policy gates against a release candidate",
+    description="Executes deterministic checks, CRISPE contracts, baseline regression checks, and holdout gates.",
+    responses={
+        status.HTTP_200_OK: {"description": "Validation completed.", "model": ReleaseValidationReport},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Release not found.", "model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"description": "Invalid release state transition.", "model": ErrorResponse},
+    },
+)
+async def validate_release(
+    release_id: uuid.UUID,
+    policy: Optional[ReleaseValidationPolicy] = None,
+    authorized_holdout: bool = Query(default=True, description="Whether operator authorizes holdout evaluation"),
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseValidationReport:
+    """Validate a release draft against policies and production baseline."""
+    return await release_service.validate_release(
+        session=session,
+        release_id=release_id,
+        principal_id=principal.id,
+        policy=policy,
+        authorized_holdout=authorized_holdout,
+    )
+
+
+@router.get(
+    "/releases/{release_id}/validation",
+    response_model=ReleaseValidationReport,
+    status_code=status.HTTP_200_OK,
+    summary="Get validation report for a prompt release",
+    description="Retrieves the recorded validation audit report for a release.",
+    responses={
+        status.HTTP_200_OK: {"description": "Validation report retrieved.", "model": ReleaseValidationReport},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Release or validation report not found.", "model": ErrorResponse},
+    },
+)
+async def get_release_validation(
+    release_id: uuid.UUID,
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseValidationReport:
+    """Retrieve recorded validation report for a release."""
+    release = await release_service.get_release(session=session, release_id=release_id)
+    if not release.validation_report:
+        raise ReleaseNotFoundError(f"Validation report for release '{release_id}'")
+    return ReleaseValidationReport.model_validate(release.validation_report)
+
+
+@router.post(
+    "/releases/{release_id}/promote",
+    response_model=ReleaseDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Promote a validated prompt release to active production",
+    description="Atomically promotes a validated release to ACTIVE, superseding the prior active release.",
+    responses={
+        status.HTTP_200_OK: {"description": "Release successfully promoted to active.", "model": ReleaseDetailResponse},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Release not found.", "model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"description": "Release cannot be promoted due to state or concurrency conflict.", "model": ErrorResponse},
+        status.HTTP_422_UNPROCESSABLE_CONTENT: {"description": "Separation of duties or validation gate failure.", "model": ErrorResponse},
+    },
+)
+async def promote_release(
+    release_id: uuid.UUID,
+    request: Optional[PromoteReleaseRequest] = None,
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseDetailResponse:
+    """Promote a validated release to active production pointer."""
+    reason = request.reason if request else None
+    release = await release_service.promote_release(
+        session=session,
+        release_id=release_id,
+        principal_id=principal.id,
+        reason=reason,
+    )
+    return release.to_detail_dto()
+
+
+@router.post(
+    "/releases/{release_id}/rollback",
+    response_model=ReleaseDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Safely roll back production to a prior approved release",
+    description="Restores an approved prior release snapshot as the active production pointer.",
+    responses={
+        status.HTTP_200_OK: {"description": "Production successfully rolled back to target release.", "model": ReleaseDetailResponse},
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required.", "model": ErrorResponse},
+        status.HTTP_404_NOT_FOUND: {"description": "Target release not found.", "model": ErrorResponse},
+        status.HTTP_409_CONFLICT: {"description": "Illegal rollback target status.", "model": ErrorResponse},
+    },
+)
+async def rollback_release(
+    release_id: uuid.UUID,
+    request: RollbackReleaseRequest,
+    principal: AuthorizedPrincipal = Depends(get_current_principal),
+    session: AsyncSession = Depends(get_db_session),
+    release_service: PromptReleaseService = Depends(get_prompt_release_service),
+) -> ReleaseDetailResponse:
+    """Roll back production pointer to a previously approved release snapshot."""
+    release = await release_service.rollback_release(
+        session=session,
+        target_release_id=release_id,
+        principal_id=principal.id,
+        reason=request.reason,
+    )
+    return release.to_detail_dto()
+
 

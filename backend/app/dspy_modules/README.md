@@ -28,6 +28,8 @@ The `app.dspy_modules` package provides a programmable, typed DSPy program, GEPA
 | [`optimization_job.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/optimization_job.py) | Job lifecycle service managing job creation, state transitions, cooperative cancellation, and persistent usage recovery (Step 26). |
 | [`candidate_persistence.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/candidate_persistence.py) | Persistent candidate versioning, evaluation records, deduplication by content hash, and holdout protection (Step 27). |
 | [`artifact_storage.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/artifact_storage.py) | Atomic, traversal-safe filesystem artifact persistence under an isolated root directory with relative URNs (Step 27). |
+| [`release_validation.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/release_validation.py) | Candidate release validation service enforcing 6 automated policy gates (integrity, CRISPE contract, model compatibility, quality, regression, holdout) (Step 28). |
+| [`prompt_release.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/prompt_release.py) | Release packaging, atomic production pointer promotion, separation of duties, rollback restoration, and audit trail management (Step 28). |
 
 ---
 

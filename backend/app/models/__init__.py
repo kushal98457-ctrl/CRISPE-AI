@@ -5,6 +5,7 @@ from app.models.principal import Principal
 from app.models.prompt_candidate import CandidateEvaluation, PromptCandidate
 from app.models.prompt_embedding import PromptEmbedding
 from app.models.prompt_record import PromptRecord
+from app.models.prompt_release import PromptRelease, PromptReleaseAuditEvent
 
 __all__ = [
     "OptimizationJob",
@@ -13,4 +14,6 @@ __all__ = [
     "CandidateEvaluation",
     "PromptEmbedding",
     "PromptRecord",
+    "PromptRelease",
+    "PromptReleaseAuditEvent",
 ]

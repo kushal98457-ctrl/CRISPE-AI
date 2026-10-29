@@ -459,6 +459,23 @@ class HoldoutLeakageError(OptimizationJobError):
         )
 
 
+class HoldoutAccessRestrictedError(OptimizationJobError, PermissionError):
+    """Raised when an unauthorized attempt is made to access the final holdout partition (Step 19, 28)."""
+
+    def __init__(
+        self,
+        message: str = (
+            "Access to the final holdout partition is restricted. "
+            "Pass authorized=True with an audit reason to access holdout examples."
+        ),
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=403,
+            error_code="HOLDOUT_ACCESS_RESTRICTED",
+        )
+
+
 class ArtifactStorageError(CRISPEError):
     """Raised when artifact writing, reading, or path verification fails (Step 27)."""
 
@@ -467,6 +484,52 @@ class ArtifactStorageError(CRISPEError):
         self.status_code = 500
         self.error_code = "ARTIFACT_STORAGE_ERROR"
         self.original_error = original_error
+
+
+class ReleaseNotFoundError(OptimizationJobError):
+    """Raised when a prompt release is not found or is inaccessible (Step 28)."""
+
+    def __init__(self, release_id: str) -> None:
+        super().__init__(
+            message=f"Prompt release '{release_id}' not found.",
+            status_code=404,
+            error_code="RELEASE_NOT_FOUND",
+        )
+
+
+class InvalidReleaseStateTransitionError(OptimizationJobError):
+    """Raised when an illegal release state transition is attempted (Step 28)."""
+
+    def __init__(self, current_status: str, requested_status: str) -> None:
+        super().__init__(
+            message=f"Cannot transition prompt release from status '{current_status}' to '{requested_status}'.",
+            status_code=409,
+            error_code="INVALID_RELEASE_STATE_TRANSITION",
+        )
+
+
+class ReleaseValidationFailedError(OptimizationJobError):
+    """Raised when a candidate fails one or more release validation policy gates (Step 28)."""
+
+    def __init__(self, reason: str, details: Optional[dict] = None) -> None:
+        super().__init__(
+            message=f"Release validation failed: {reason}",
+            status_code=422,
+            error_code="RELEASE_VALIDATION_FAILED",
+        )
+        self.details = details or {}
+
+
+class ActiveReleaseConflictError(OptimizationJobError):
+    """Raised when concurrent promotion or rollback causes an active release conflict (Step 28)."""
+
+    def __init__(self, message: str = "Active prompt release state conflict detected.") -> None:
+        super().__init__(
+            message=message,
+            status_code=409,
+            error_code="ACTIVE_RELEASE_CONFLICT",
+        )
+
 
 
 

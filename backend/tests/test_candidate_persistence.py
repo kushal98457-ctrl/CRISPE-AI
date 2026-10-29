@@ -586,7 +586,7 @@ def test_alembic_migration_0005_discovery_and_structure():
     script_dir = ScriptDirectory.from_config(alembic_cfg)
 
     head_rev = script_dir.get_current_head()
-    assert head_rev == "0005_prompt_candidates"
+    assert head_rev in ("0005_prompt_candidates", "0006_prompt_releases")
 
     script = script_dir.get_revision("0005_prompt_candidates")
     assert script is not None

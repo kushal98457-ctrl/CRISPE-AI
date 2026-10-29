@@ -27,6 +27,19 @@ from app.schemas.prompt_candidate import (
     JobOptimizationResultsResponse,
     PaginatedCandidatesResponse,
 )
+from app.schemas.prompt_release import (
+    CreateReleaseRequest,
+    PaginatedReleasesResponse,
+    PromoteReleaseRequest,
+    ReleaseDetailResponse,
+    ReleaseStateMachine,
+    ReleaseStatus,
+    ReleaseSummaryResponse,
+    ReleaseValidationPolicy,
+    ReleaseValidationReport,
+    RollbackReleaseRequest,
+    ValidationCheckResult,
+)
 from app.schemas.semantic_search import (
     SemanticMemorySearchRequest,
     SemanticMemorySearchResultItem,
@@ -66,4 +79,15 @@ __all__ = [
     "EvaluationRecordResponse",
     "CandidateEvaluationsResponse",
     "JobOptimizationResultsResponse",
+    "ReleaseStatus",
+    "ReleaseStateMachine",
+    "ValidationCheckResult",
+    "ReleaseValidationReport",
+    "ReleaseValidationPolicy",
+    "CreateReleaseRequest",
+    "PromoteReleaseRequest",
+    "RollbackReleaseRequest",
+    "ReleaseSummaryResponse",
+    "ReleaseDetailResponse",
+    "PaginatedReleasesResponse",
 ]
