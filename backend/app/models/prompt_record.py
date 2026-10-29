@@ -1,7 +1,7 @@
 """SQLAlchemy ORM model for persistent CRISPE prompt records."""
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, Optional
 import uuid
 from sqlalchemy import ForeignKey, Index, Integer, String, Text, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,6 +15,7 @@ from app.schemas.crispe import (
 
 if TYPE_CHECKING:
     from app.models.principal import Principal
+    from app.models.prompt_embedding import PromptEmbedding
 
 
 class PromptRecord(Base, TimestampMixin):
@@ -98,6 +99,12 @@ class PromptRecord(Base, TimestampMixin):
     owner: Mapped[Optional["Principal"]] = relationship(
         "Principal",
         back_populates="prompts",
+    )
+
+    embeddings: Mapped[List["PromptEmbedding"]] = relationship(
+        "PromptEmbedding",
+        back_populates="prompt",
+        cascade="all, delete-orphan",
     )
 
     # Token consumption telemetry

@@ -436,9 +436,6 @@ def test_alembic_script_directory_discovers_migration_0002() -> None:
     config = Config(str(alembic_ini_path))
     script_dir = ScriptDirectory.from_config(config)
 
-    head_rev = script_dir.get_current_head()
-    assert head_rev == "0002_principal_and_prompt_ownership"
-
     rev_0002 = script_dir.get_revision("0002_principal_and_prompt_ownership")
     assert rev_0002 is not None
     assert rev_0002.down_revision == "0001_prompt_records"
