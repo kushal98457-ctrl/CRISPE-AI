@@ -5,8 +5,10 @@ compatibility verification, owner-scoped pgvector similarity retrieval, and type
 response serialization.
 """
 
-from typing import List, Optional, Union
+import hashlib
+from typing import List, Optional, Tuple, Union
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -21,7 +23,10 @@ from app.core.exceptions import (
 )
 from app.core.logging import get_logger
 from app.core.security import AuthorizedPrincipal
+from app.models.prompt_record import PromptRecord
 from app.repositories.embedding_repository import EmbeddingRepository
+from app.repositories.prompt_repository import PromptRepository
+from app.schemas.crispe import CrispeSections
 from app.schemas.embedding import EmbeddingResult, EmbeddingTaskType
 from app.schemas.semantic_search import (
     SemanticSearchItem,
@@ -223,6 +228,86 @@ class SemanticSearchService:
             config_version=query_obj.config_version,
             search_metric="cosine_distance",
         )
+
+    async def save_prompt(
+        self,
+        session: AsyncSession,
+        *,
+        principal: AuthorizedPrincipal,
+        idea: str,
+        sections: CrispeSections,
+        task_type: Optional[str] = None,
+        model_id: Optional[str] = None,
+        auto_commit: bool = True,
+    ) -> Tuple[PromptRecord, bool]:
+        """Save a validated CRISPE prompt and generate its persistent vector embedding.
+
+        Returns:
+            Tuple[PromptRecord, bool]: The persisted PromptRecord and a boolean indicating
+            whether a new record was created (True) or an existing identical record was returned (False).
+        """
+        principal.ensure_active()
+        effective_idea = idea.strip()
+        if not effective_idea:
+            raise EmptyPromptError("Prompt idea cannot be empty or whitespace.")
+
+        effective_model_id = model_id or self.settings.PRIMARY_MODEL
+        formatted_prompt = sections.to_markdown()
+
+        # Idempotency check: see if identical prompt record already exists for this owner
+        stmt = (
+            select(PromptRecord)
+            .where(
+                PromptRecord.owner_id == principal.id,
+                PromptRecord.formatted_prompt == formatted_prompt,
+            )
+        )
+        existing_res = await session.execute(stmt)
+        existing_record = existing_res.scalars().first()
+        if existing_record:
+            logger.info("Found existing identical prompt record %s for principal %s", existing_record.id, principal.id)
+            return existing_record, False
+
+        # Create new PromptRecord for owner
+        prompt_record = await PromptRepository.create_for_owner(
+            session=session,
+            principal=principal,
+            idea=effective_idea,
+            sections=sections,
+            model_id=effective_model_id,
+            formatted_prompt=formatted_prompt,
+            task_type=task_type,
+            auto_commit=False,
+        )
+
+        # Generate vector embedding (RETRIEVAL_DOCUMENT task)
+        embedding_result = await self.embedding_service.embed_text(
+            formatted_prompt,
+            task_type=EmbeddingTaskType.RETRIEVAL_DOCUMENT,
+        )
+
+        content_hash = hashlib.sha256(formatted_prompt.strip().encode("utf-8")).hexdigest()
+
+        # Store embedding linked to parent prompt record
+        await EmbeddingRepository.store_embedding_for_owner(
+            session=session,
+            principal=principal,
+            prompt_id=prompt_record.id,
+            embedding_result=embedding_result,
+            source_content_hash=content_hash,
+            auto_commit=False,
+        )
+
+        if auto_commit:
+            await session.commit()
+            await session.refresh(prompt_record)
+
+        logger.info(
+            "Saved prompt record %s and vector embedding for principal %s",
+            prompt_record.id,
+            principal.id,
+        )
+        return prompt_record, True
 
 
 def get_semantic_search_service(

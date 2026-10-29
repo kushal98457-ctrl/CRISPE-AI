@@ -10,9 +10,20 @@ from app.mcp.errors import (
     MCPInternalError,
     MCPInvalidInputError,
     MCPResourceNotFoundError,
+    MCPUnauthorizedError,
     sanitize_error_message,
 )
-from app.mcp.schemas import PingResponse, ServerMetadataResponse
+from app.mcp.schemas import (
+    GenerateCrispePromptInput,
+    GenerateCrispePromptOutput,
+    PingResponse,
+    PromptMemoryMatchItem,
+    SavePromptMemoryInput,
+    SavePromptMemoryOutput,
+    SearchPromptMemoryInput,
+    SearchPromptMemoryOutput,
+    ServerMetadataResponse,
+)
 from app.mcp.server import create_mcp_server, run_stdio
 from app.mcp.services.context import MCPAppContext
 
@@ -24,8 +35,16 @@ __all__ = [
     "MCPError",
     "MCPInvalidInputError",
     "MCPResourceNotFoundError",
+    "MCPUnauthorizedError",
     "MCPInternalError",
     "sanitize_error_message",
     "PingResponse",
     "ServerMetadataResponse",
+    "GenerateCrispePromptInput",
+    "GenerateCrispePromptOutput",
+    "SearchPromptMemoryInput",
+    "PromptMemoryMatchItem",
+    "SearchPromptMemoryOutput",
+    "SavePromptMemoryInput",
+    "SavePromptMemoryOutput",
 ]

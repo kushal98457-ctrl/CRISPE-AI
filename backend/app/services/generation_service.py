@@ -4,6 +4,7 @@ Coordinates the transformation of raw user ideas into rigorous, structured CRISP
 by orchestrating model adapters, structured schema enforcement, and Markdown formatting.
 """
 
+import asyncio
 import json
 import re
 from typing import Optional, Tuple
@@ -137,13 +138,16 @@ class CrispeGenerationService:
                     return (active_release.release_version, active_release.instruction_text)
             else:
                 factory = get_session_factory()
-                async with factory() as db_session:
-                    stmt = select(PromptRelease).where(PromptRelease.is_active == True)
-                    res = await db_session.execute(stmt)
-                    active_release = res.scalar_one_or_none()
-                    if active_release:
-                        set_cached_active_release(active_release.release_version, active_release.instruction_text)
-                        return (active_release.release_version, active_release.instruction_text)
+                async def _lookup():
+                    async with factory() as db_session:
+                        stmt = select(PromptRelease).where(PromptRelease.is_active == True)
+                        res = await db_session.execute(stmt)
+                        return res.scalar_one_or_none()
+
+                active_release = await asyncio.wait_for(_lookup(), timeout=0.5)
+                if active_release:
+                    set_cached_active_release(active_release.release_version, active_release.instruction_text)
+                    return (active_release.release_version, active_release.instruction_text)
         except Exception as exc:
             logger.debug("Active release DB lookup bypassed or unavailable: %s", exc)
 

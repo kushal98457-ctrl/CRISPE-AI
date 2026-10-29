@@ -16,11 +16,11 @@ _CONNECTION_STRING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _API_KEY_PATTERN = re.compile(
-    r"\b(?:AIza[0-9A-Za-z-_]{35}|sk-[a-zA-Z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/-]{15,})\b",
+    r"\b(?:AIza[0-9A-Za-z-_]{25,}|sk-[a-zA-Z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/-]{15,})\b",
     re.IGNORECASE,
 )
 _PASSWORD_PARAM_PATTERN = re.compile(
-    r"(password|secret|token|api_key|credential)=([^\s&,;]+)",
+    r"(key|password|secret|token|api_key|credential)=([^\s&,;]+)",
     re.IGNORECASE,
 )
 _WINDOWS_PATH_PATTERN = re.compile(
@@ -55,7 +55,14 @@ def sanitize_error_message(message: str) -> str:
     return sanitized
 
 
-class MCPError(Exception):
+try:
+    from mcp.server.mcpserver.exceptions import ToolError
+except ImportError:
+    class ToolError(Exception):
+        pass
+
+
+class MCPError(ToolError):
     """Base exception for all CRISPE-AI MCP integration errors."""
 
     def __init__(
@@ -97,6 +104,17 @@ class MCPResourceNotFoundError(MCPError):
         super().__init__(
             message=message,
             code="RESOURCE_NOT_FOUND",
+            details=details,
+        )
+
+
+class MCPUnauthorizedError(MCPError):
+    """Raised when an operation requires an authenticated or authorized security principal context."""
+
+    def __init__(self, message: str = "Authentication or active principal context is required.", details: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(
+            message=message,
+            code="UNAUTHORIZED",
             details=details,
         )
 

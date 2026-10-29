@@ -16,7 +16,11 @@ from mcp.server.mcpserver import MCPServer
 from app.core.logging import get_logger
 from app.mcp.config import MCPServerConfig
 from app.mcp.services.context import MCPAppContext
-from app.mcp.tools.smoke import register_smoke_tools
+from app.mcp.tools import (
+    register_generation_tools,
+    register_memory_tools,
+    register_smoke_tools,
+)
 
 logger = get_logger("mcp_server")
 
@@ -75,11 +79,21 @@ def create_mcp_server(
     if cfg.enable_smoke_tools:
         register_smoke_tools(server=server, config=cfg, context=ctx)
 
+    # Register CRISPE prompt generation tools (Step 30)
+    if cfg.enable_prompt_tools:
+        register_generation_tools(server=server, config=cfg, context=ctx)
+
+    # Register semantic prompt memory tools (Step 30)
+    if cfg.enable_memory_tools:
+        register_memory_tools(server=server, config=cfg, context=ctx)
+
     logger.debug(
-        "Constructed MCP server '%s' v%s (smoke_tools=%s)",
+        "Constructed MCP server '%s' v%s (smoke_tools=%s, prompt_tools=%s, memory_tools=%s)",
         cfg.server_name,
         cfg.server_version,
         cfg.enable_smoke_tools,
+        cfg.enable_prompt_tools,
+        cfg.enable_memory_tools,
     )
     return server
 

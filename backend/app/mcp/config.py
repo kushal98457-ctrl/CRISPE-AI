@@ -46,6 +46,14 @@ class MCPServerConfig(BaseModel):
         default=True,
         description="Whether to register minimal smoke test capabilities (ping, server_info).",
     )
+    enable_prompt_tools: bool = Field(
+        default=True,
+        description="Whether to register CRISPE prompt generation tools (generate_crispe_prompt).",
+    )
+    enable_memory_tools: bool = Field(
+        default=True,
+        description="Whether to register semantic prompt memory tools (search_prompt_memory, save_prompt_memory).",
+    )
     log_level: str = Field(
         default="INFO",
         description="Logging level for stdio transport diagnostics (emitted to stderr).",
