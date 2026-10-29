@@ -47,7 +47,7 @@ def main() -> int:
     print(f" GEPA Prompt Optimization Experiment Results: {result.config.experiment_id}")
     print("=" * 80)
     print(f"Status:                    {result.status}")
-    print(f"Execution Mode:            {'Deterministic Mock Double' if result.resource_summary.generation_calls == 0 and result.config.is_mock else 'Live Model Execution'}")
+    print(f"Execution Mode:            {'Deterministic Mock Double' if result.config.is_mock else 'Live Model Execution'}")
     print(f"Dataset Version:           {result.subsets_metadata.dataset_version}")
     print(f"Training Examples:         {len(result.subsets_metadata.train_example_ids)} {result.subsets_metadata.train_example_ids}")
     print(f"Validation Examples:       {len(result.subsets_metadata.val_example_ids)} {result.subsets_metadata.val_example_ids}")
@@ -61,6 +61,10 @@ def main() -> int:
     print("-" * 80)
     print(f"GEPA Metric Calls Used:    {res_usage.gepa_metric_calls}/{result.config.max_metric_calls}")
     print(f"Total Provider Calls Used: {res_usage.total_provider_calls}/{result.config.max_total_provider_calls}")
+    if res_usage.total_tokens is not None:
+        print(f"Total Tokens Reported:     {res_usage.total_tokens}")
+    if res_usage.estimated_expenditure_usd is not None:
+        print(f"Estimated Cost (USD):      ${res_usage.estimated_expenditure_usd:.4f} (estimate: {res_usage.pricing_version})")
     print(f"Elapsed Wall-Clock Time:   {res_usage.elapsed_seconds:.2f}s")
     print("-" * 80)
     print("Persisted Artifacts:")

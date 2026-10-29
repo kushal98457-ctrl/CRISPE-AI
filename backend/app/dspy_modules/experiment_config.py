@@ -63,6 +63,26 @@ class GepaExperimentConfig(BaseModel):
         default=False,
         description="Whether to execute LLM judge evaluation during metric scoring.",
     )
+    max_total_tokens: Optional[int] = Field(
+        default=None,
+        ge=100,
+        description="Optional aggregate token ceiling for the optimization run.",
+    )
+    max_budget_usd: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Optional maximum budget allowed for the experiment in USD.",
+    )
+    pricing_version: str = Field(
+        default="gemini-2025-standard-v1",
+        description="Pricing table version used for cost calculations.",
+    )
+    max_retries_per_request: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum retry attempts per provider request.",
+    )
     is_mock: bool = Field(
         default=False,
         description="Whether to run using deterministic mock models (offline verification).",

@@ -15,7 +15,8 @@ The `app.dspy_modules` package provides a programmable, typed DSPy program, GEPA
 | [`model_client.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/model_client.py) | Configures DSPy Language Models (`dspy.LM`), model identifier normalization, reflection model creation (`create_dspy_reflection_lm`), and context isolation via `dspy.context(lm=...)`. |
 | [`dataset_converter.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/dataset_converter.py) | Converts [`EvaluationExample`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/evaluation/schemas.py#L34-L170) records into `dspy.Example` instances, strictly designating inputs and enforcing sealed holdout partition protection. |
 | [`gepa_metric.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/gepa_metric.py) | Implements [`CrispeGepaMetric`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/gepa_metric.py#L42-L260) satisfying the 5-arg `GEPAFeedbackMetric` protocol, returning `ScoreWithFeedback` with composite scores, diagnostic reflection feedback, and critical failure caps. |
-| [`budget_guard.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) | Thread-safe [`ResourceBudgetGuard`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) enforcing metric-call bounds, cumulative provider request ceilings, wall-clock timeouts, and concurrency limits. |
+| [`budget_guard.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) | Backward-compatible [`ResourceBudgetGuard`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) wrapping [`ResourceBudgetManager`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/resource_budget.py) (Steps 24-25). |
+| [`resource_budget.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/resource_budget.py) | Centralized [`ResourceBudgetManager`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/resource_budget.py) enforcing pre-dispatch reservation, retries, concurrency limits, wall-clock deadlines, token accumulation, and cost estimates. |
 | [`subset_selector.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/subset_selector.py) | [`PilotSubsetSelector`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/subset_selector.py) selecting balanced, diverse training/validation subsets with dataset SHA-256 verification and zero holdout leakage. |
 | [`experiment_config.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/experiment_config.py) | Typed Pydantic configuration [`GepaExperimentConfig`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/experiment_config.py) governing pilot parameters, sample counts, and budget limits. |
 | [`experiment_runner.py`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/experiment_runner.py) | Complete experiment orchestrator [`GepaExperimentRunner`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/experiment_runner.py) executing baseline evaluation, reflective optimization, candidate comparison, and artifact persistence. |
@@ -26,14 +27,36 @@ The `app.dspy_modules` package provides a programmable, typed DSPy program, GEPA
 
 ---
 
-## 2. Resource Budget Guards & Operational Limits (Step 24)
+## 2. AI Resource Budgeting & Provider-Call Accounting (Steps 24-25)
 
-GEPA experiments involve multiple recursive operations: program rollouts, metric evaluations, reflection mutations, and validation scorings. To prevent runaway costs, the [`ResourceBudgetGuard`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) enforces three independent ceilings:
+GEPA experiments involve multiple recursive operations: program rollouts, metric evaluations, reflection mutations, and validation scorings. To ensure complete cost predictability and operational safety, the centralized [`ResourceBudgetManager`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/resource_budget.py) and [`ResourceBudgetGuard`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/dspy_modules/budget_guard.py) enforce multi-tiered resource boundaries:
 
-1. **GEPA Metric Invocations:** Hard bound on metric evaluations (default: 15 calls for pilots). Reaching this limit gracefully terminates candidate rollouts via `BudgetExceededError`.
-2. **Total Provider API Requests:** Hard cumulative ceiling across generation, reflection, and judge calls (default: 35 calls).
-3. **Execution Timeout:** Strict wall-clock deadline (default: 300.0s). Exceeding it triggers an `OptimizationTimeoutError`.
-4. **Concurrency:** Default concurrency limit = 1 for pilot experiments.
+1. **Metric vs. Provider Discrepancy Separation:**
+   - GEPA metric evaluations are tracked independently from physical external provider requests.
+   - A single metric evaluation can invoke both student generation and LLM-as-a-judge models.
+   - Retries and reflection operations consume additional provider API calls without incrementing the GEPA metric counter.
+
+2. **Pre-Dispatch Capacity Reservation:**
+   - Every provider operation must reserve capacity via `reserve_provider_call` before any network request is dispatched.
+   - If the request budget or wall-clock deadline is exhausted, the request fails closed immediately (`BudgetExceededError`, `OptimizationTimeoutError`).
+
+3. **Attempt & Retry Accounting:**
+   - Transient failure retries inside provider adapters (`GeminiModelAdapter`) consume additional request capacity (`is_retry=True`).
+   - Retries are bounded by `max_retries_per_request` and cannot bypass the cumulative experiment request ceiling.
+
+4. **Wall-Clock Deadlines & Concurrency Limits:**
+   - Wall-clock deadlines are strictly enforced against monotonic time (`OptimizationTimeoutError`).
+   - Process-local concurrency is bounded via `threading.Semaphore`, preventing connection pool starvation or rate limit spikes.
+   - Concurrency slots are unconditionally released in `finally` blocks upon completion, timeout, cancellation, or error.
+
+5. **Token Telemetry & Expenditure Estimation:**
+   - Provider-reported token usage (`prompt_tokens`, `candidates_tokens`, `total_tokens`) is recorded without fabricating missing values.
+   - If token metadata is unavailable, `has_missing_usage=True` is flagged rather than coercing `None` to zero.
+   - Estimated expenditure in USD is computed using the verified rate table (`gemini-2025-standard-v1`: \$0.075/1M input, \$0.30/1M output for Gemini 2.5 Flash).
+   - Expenditure numbers are explicitly labeled as **estimates**. Unknown model rates return `None`.
+
+6. **Ambient Context Propagation:**
+   - Active experiment budgets propagate automatically through task contexts using `active_budget_manager` (`ContextVar`), binding adapter calls down the call stack without manual parameter threading.
 
 ---
 
@@ -118,6 +141,7 @@ python -m app.dspy_modules.run_gepa_experiment --mock --train-size 5 --val-size 
 
 ### Automated Unit & Integration Tests (Zero Real API Credits):
 ```powershell
+pytest tests/test_resource_budget.py -v
 pytest tests/test_gepa_experiment.py -v
 pytest tests/test_gepa_compatibility.py -v
 ```
@@ -126,4 +150,4 @@ pytest tests/test_gepa_compatibility.py -v
 ```powershell
 pytest tests -q
 ```
-*(319 tests passing, 6 skipped)*
+*(346 tests passing, 6 skipped)*

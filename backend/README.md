@@ -214,3 +214,28 @@ backend/
   - `# S - Specification`
   - `# P - Performance`
   - `# E - Example`
+
+---
+
+## 🛡️ AI Resource Budgeting & Provider-Call Accounting (Step 25)
+
+The centralized [`ResourceBudgetManager`](file:///C:/Users/kushl/.gemini/antigravity/scratch/CRISPE-AI/backend/app/services/resource_budget.py) provides multi-tiered execution safety and auditability across all AI model generation, evaluation, reflection, and optimization operations:
+
+- **Pre-Dispatch Capacity Reservation:** Every provider call must reserve capacity before dispatch. If the request budget or wall-clock deadline is exhausted, the call fails closed immediately.
+- **Metric vs. Provider Separation:** Distinguishes GEPA feedback metric invocations from physical external API requests. A single metric invocation can trigger student generation, LLM-as-a-judge evaluation, and reflection proposer requests.
+- **Attempt & Retry Accounting:** Adapter retries on transient errors consume request capacity (`is_retry=True`) and cannot bypass the experiment request ceiling.
+- **Execution Limits:**
+  - Wall-clock deadlines enforced via monotonic clock (`OptimizationTimeoutError`).
+  - Request concurrency strictly bounded via in-process semaphore.
+  - Concurrency capacity is unconditionally released in `finally` blocks upon completion, timeout, or error.
+- **Token & Cost Accounting:**
+  - Provider-reported token counts (`prompt_tokens`, `candidates_tokens`, `total_tokens`) are recorded cleanly.
+  - Missing token metadata is explicitly flagged (`has_missing_usage=True`) without coercing `None` to zero.
+  - Estimated expenditure in USD is calculated using verified pricing tables (`gemini-2025-standard-v1`).
+- **Ambient Context Propagation:** The active budget manager binds to async task contexts via `active_budget_manager` (`ContextVar`), intercepting calls down the stack without parameter leakage.
+
+### Run Resource Budgeting Tests:
+```powershell
+pytest tests/test_resource_budget.py -v
+```
+*(27 passed in ~2.1s)*

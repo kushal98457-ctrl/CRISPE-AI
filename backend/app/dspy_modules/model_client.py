@@ -5,6 +5,7 @@ credential resolution, and request-scoped context isolation.
 """
 
 from contextlib import contextmanager
+import time
 from typing import Any, Dict, Generator, Optional
 import dspy
 
@@ -14,6 +15,13 @@ from app.core.exceptions import (
     ProviderConfigError,
 )
 from app.core.logging import get_logger
+from app.services.resource_budget import (
+    BudgetExceededError,
+    OptimizationTimeoutError,
+    OperationType,
+    ResourceBudgetManager,
+    get_active_budget_manager,
+)
 
 logger = get_logger("dspy_model_client")
 
@@ -40,6 +48,8 @@ def create_dspy_lm(
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
     cache: bool = False,
+    budget_manager: Optional[ResourceBudgetManager] = None,
+    operation_type: OperationType = OperationType.GENERATION,
     **kwargs: Any,
 ) -> dspy.LM:
     """Instantiate a configured DSPy LM client for Google Gemini models.
@@ -52,10 +62,12 @@ def create_dspy_lm(
         max_tokens: Upper bound on output tokens.
         timeout: Request timeout in seconds.
         cache: Whether to enable DSPy disk caching (default False for evaluation reproducibility).
+        budget_manager: Optional ResourceBudgetManager to wrap the LM with resource budgeting.
+        operation_type: Logical operation category if budget_manager is enabled.
         kwargs: Additional arguments forwarded to dspy.LM.
 
     Returns:
-        dspy.LM instance.
+        dspy.LM instance (wrapped in BudgetGuardedLM if budget_manager is provided).
 
     Raises:
         ProviderConfigError: If credentials cannot be resolved or LM initialization fails.
@@ -95,6 +107,12 @@ def create_dspy_lm(
             cache=cache,
             **kwargs,
         )
+        if budget_manager is not None:
+            return BudgetGuardedLM(
+                inner_lm=lm,
+                budget_manager=budget_manager,
+                operation_type=operation_type,
+            )
         return lm
     except Exception as exc:
         logger.error("Failed to construct DSPy LM client for '%s': %s", normalized_name, exc)
@@ -112,9 +130,10 @@ def create_dspy_reflection_lm(
     max_tokens: Optional[int] = None,
     timeout: Optional[float] = None,
     cache: bool = False,
+    budget_manager: Optional[ResourceBudgetManager] = None,
     **kwargs: Any,
 ) -> dspy.LM:
-    """Instantiate a configured DSPy LM client specifically for GEPA reflection (Step 23).
+    """Instantiate a configured DSPy LM client specifically for GEPA reflection (Step 23 & 25).
 
     Reflection reasoning analyzes evaluation feedback and proposes candidate prompt mutations.
     Defaults to settings.REFLECTION_MODEL ('gemini-2.5-flash') at low temperature (0.0).
@@ -127,6 +146,7 @@ def create_dspy_reflection_lm(
         max_tokens: Upper bound on output tokens.
         timeout: Request timeout in seconds.
         cache: Whether to enable DSPy disk caching.
+        budget_manager: Optional ResourceBudgetManager to enforce reflection call limits.
         kwargs: Additional arguments forwarded to dspy.LM.
 
     Returns:
@@ -149,8 +169,83 @@ def create_dspy_reflection_lm(
         max_tokens=max_tokens,
         timeout=timeout,
         cache=cache,
+        budget_manager=budget_manager,
+        operation_type=OperationType.REFLECTION,
         **kwargs,
     )
+
+
+class BudgetGuardedLM(dspy.BaseLM):
+    """Wraps any dspy.LM with pre-dispatch budget reservation and accounting (Step 25)."""
+
+    def __init__(
+        self,
+        inner_lm: Any,
+        budget_manager: Optional[ResourceBudgetManager] = None,
+        operation_type: OperationType = OperationType.GENERATION,
+    ) -> None:
+        super().__init__(model=getattr(inner_lm, "model", "dspy-model"))
+        self.inner_lm = inner_lm
+        self.budget_manager = budget_manager
+        self.operation_type = operation_type
+
+    def __call__(self, prompt=None, messages=None, **kwargs):
+        bm = self.budget_manager or get_active_budget_manager()
+        token = None
+        if bm:
+            token = bm.reserve_provider_call(
+                operation_type=self.operation_type,
+                model_id=self.model,
+                acquire_concurrency=True,
+            )
+        start_time = time.monotonic()
+        try:
+            res = self.inner_lm(prompt=prompt, messages=messages, **kwargs)
+            latency_ms = (time.monotonic() - start_time) * 1000.0
+
+            usage = None
+            if hasattr(self.inner_lm, "history") and self.inner_lm.history:
+                last_call = self.inner_lm.history[-1]
+                if isinstance(last_call, dict) and "response" in last_call:
+                    raw_resp = last_call["response"]
+                    if hasattr(raw_resp, "usage"):
+                        u = raw_resp.usage
+                        usage = {
+                            "prompt_tokens": getattr(u, "prompt_tokens", None),
+                            "candidates_tokens": getattr(u, "completion_tokens", None),
+                            "total_tokens": getattr(u, "total_tokens", None),
+                        }
+            if bm and token:
+                bm.record_call_completion(
+                    token=token,
+                    usage=usage,
+                    latency_ms=latency_ms,
+                    provider_name="dspy-litellm",
+                    model_id=self.model,
+                )
+            return res
+        except Exception as exc:
+            latency_ms = (time.monotonic() - start_time) * 1000.0
+            if bm and token:
+                bm.record_call_failure(
+                    token=token,
+                    error=exc,
+                    latency_ms=latency_ms,
+                    provider_name="dspy-litellm",
+                    model_id=self.model,
+                )
+            raise
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.inner_lm, name)
+
+    def copy(self, **kwargs):
+        new_inner = self.inner_lm.copy(**kwargs) if hasattr(self.inner_lm, "copy") else self.inner_lm
+        return BudgetGuardedLM(
+            inner_lm=new_inner,
+            budget_manager=self.budget_manager,
+            operation_type=self.operation_type,
+        )
 
 
 @contextmanager

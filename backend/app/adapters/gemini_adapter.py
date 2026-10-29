@@ -8,6 +8,7 @@ timeout management, exponential backoff retries, and domain error translation.
 import asyncio
 from abc import ABC, abstractmethod
 import random
+import time
 from typing import Any, Optional, Type
 import httpx
 from pydantic import BaseModel, ConfigDict, Field
@@ -32,6 +33,12 @@ from app.core.exceptions import (
 )
 from app.core.logging import get_logger
 from app.schemas.crispe import ModelUsageMetadata
+from app.services.resource_budget import (
+    BudgetExceededError,
+    OptimizationTimeoutError,
+    OperationType,
+    get_active_budget_manager,
+)
 
 logger = get_logger("gemini_adapter")
 
@@ -81,6 +88,14 @@ class ModelGenerationRequest(BaseModel):
         ge=1.0,
         le=600.0,
         description="Request timeout in seconds. Defaults to configured GEMINI_TIMEOUT_SECONDS.",
+    )
+    budget_manager: Optional[Any] = Field(
+        default=None,
+        description="Optional ResourceBudgetManager to enforce pre-dispatch capacity limits.",
+    )
+    operation_type: Optional[OperationType] = Field(
+        default=None,
+        description="Logical operation category (e.g. generation, evaluation, reflection).",
     )
 
 
@@ -286,10 +301,27 @@ class GeminiModelAdapter(BaseModelAdapter):
 
         gen_config = genai_types.GenerateContentConfig(**config_kwargs)
 
+        # Resolve budget manager from request or ambient context
+        active_bm = request.budget_manager or get_active_budget_manager()
+        op_type = request.operation_type or OperationType.GENERATION
+
         max_retries = self.settings.GEMINI_MAX_RETRIES
         base_delay = 1.0
 
         for attempt in range(max_retries + 1):
+            is_retry = (attempt > 0)
+            reservation_token = None
+            if active_bm:
+                # Pre-dispatch check and capacity reservation
+                reservation_token = active_bm.reserve_provider_call(
+                    operation_type=op_type,
+                    model_id=model_id,
+                    is_retry=is_retry,
+                    attempt_number=attempt + 1,
+                    acquire_concurrency=True,
+                )
+
+            call_start = time.monotonic()
             try:
                 # Wrap in asyncio.wait_for as a robust client-side deadline guarantee
                 raw_response = await asyncio.wait_for(
@@ -331,6 +363,16 @@ class GeminiModelAdapter(BaseModelAdapter):
                 usage = self._extract_usage(raw_response)
                 response_id = getattr(raw_response, "response_id", None)
 
+                if active_bm and reservation_token:
+                    call_latency = (time.monotonic() - call_start) * 1000.0
+                    active_bm.record_call_completion(
+                        token=reservation_token,
+                        usage=usage,
+                        latency_ms=call_latency,
+                        provider_name=self.settings.PROVIDER_NAME,
+                        model_id=model_id,
+                    )
+
                 return ModelGenerationResponse(
                     content=content_text,
                     parsed=parsed_obj,
@@ -341,6 +383,20 @@ class GeminiModelAdapter(BaseModelAdapter):
                 )
 
             except Exception as exc:
+                call_latency = (time.monotonic() - call_start) * 1000.0
+                if active_bm and reservation_token:
+                    active_bm.record_call_failure(
+                        token=reservation_token,
+                        error=exc,
+                        latency_ms=call_latency,
+                        provider_name=self.settings.PROVIDER_NAME,
+                        model_id=model_id,
+                    )
+
+                if isinstance(exc, (BudgetExceededError, OptimizationTimeoutError)):
+                    # Do not retry if budget limit or deadline is exhausted
+                    raise exc
+
                 domain_error = self._map_provider_error(exc)
 
                 # If non-retryable or retries exhausted, raise immediately

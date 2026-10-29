@@ -23,6 +23,7 @@ from app.core.exceptions import MissingProviderCredentialError
 from app.core.logging import get_logger
 from app.dspy_modules.budget_guard import (
     BudgetExceededError,
+    OperationType,
     OptimizationTimeoutError,
     ResourceBudgetGuard,
     ResourceUsageSummary,
@@ -55,7 +56,21 @@ class MockExperimentStudentLM(dspy.BaseLM):
 
     def __call__(self, prompt=None, messages=None, **kwargs):
         if self.guard:
-            self.guard.record_generation_call()
+            if hasattr(self.guard, "reserve_provider_call"):
+                token = self.guard.reserve_provider_call(
+                    operation_type=OperationType.GENERATION,
+                    model_id=self.model,
+                    acquire_concurrency=True,
+                )
+                self.guard.record_call_completion(
+                    token=token,
+                    usage={"prompt_tokens": 120, "candidates_tokens": 150, "total_tokens": 270},
+                    latency_ms=15.0,
+                    provider_name="mock-offline",
+                    model_id=self.model,
+                )
+            else:
+                self.guard.record_generation_call()
         return [
             "[[ ## context ## ]]\nContext: Enterprise financial transaction pipeline.\n"
             "[[ ## role ## ]]\nRole: Senior FinTech Systems Architect.\n"
@@ -75,7 +90,21 @@ class MockExperimentReflectionLM(dspy.BaseLM):
 
     def __call__(self, prompt=None, messages=None, **kwargs):
         if self.guard:
-            self.guard.record_reflection_call()
+            if hasattr(self.guard, "reserve_provider_call"):
+                token = self.guard.reserve_provider_call(
+                    operation_type=OperationType.REFLECTION,
+                    model_id=self.model,
+                    acquire_concurrency=True,
+                )
+                self.guard.record_call_completion(
+                    token=token,
+                    usage={"prompt_tokens": 200, "candidates_tokens": 100, "total_tokens": 300},
+                    latency_ms=20.0,
+                    provider_name="mock-offline",
+                    model_id=self.model,
+                )
+            else:
+                self.guard.record_reflection_call()
         return [
             json.dumps({
                 "new_instruction": (
@@ -139,10 +168,15 @@ class GepaExperimentRunner:
         self.settings = settings or get_settings()
         self.subset_selector = subset_selector or PilotSubsetSelector()
         self.guard = ResourceBudgetGuard(
+            experiment_id=self.config.experiment_id,
             max_gepa_metric_calls=self.config.max_metric_calls,
             max_total_provider_calls=self.config.max_total_provider_calls,
             max_elapsed_seconds=self.config.max_elapsed_seconds,
             concurrency_limit=self.config.concurrency_limit,
+            max_retries_per_request=self.config.max_retries_per_request,
+            max_total_tokens=self.config.max_total_tokens,
+            max_budget_usd=self.config.max_budget_usd,
+            pricing_version=self.config.pricing_version,
         )
 
     def _evaluate_program_on_subset(
@@ -298,67 +332,79 @@ class GepaExperimentRunner:
             ref_model_id = "mock-reflection-gemini-flash"
         else:
             logger.info("Running experiment using live configured Gemini Flash models.")
-            student_lm = create_dspy_lm(settings=self.settings)
-            reflection_lm = create_dspy_reflection_lm(settings=self.settings)
+            student_lm = create_dspy_lm(
+                settings=self.settings,
+                budget_manager=self.guard,
+                operation_type=OperationType.GENERATION,
+            )
+            reflection_lm = create_dspy_reflection_lm(
+                settings=self.settings,
+                budget_manager=self.guard,
+            )
             gen_model_id = self.settings.PRIMARY_MODEL
             ref_model_id = self.settings.REFLECTION_MODEL
 
-        # 3. Guarded Metric Setup
-        base_metric = CrispeGepaMetric(enable_model_judge=self.config.enable_model_judge)
-
-        def guarded_metric(gold, pred, trace=None, pred_name=None, pred_trace=None, **kwargs):
-            self.guard.record_metric_call()
-            return base_metric(gold, pred, trace=trace, pred_name=pred_name, pred_trace=pred_trace, **kwargs)
-
-        # 4. Evaluate Baseline Program
-        baseline_prog = CrispeGenerationProgram()
-        base_instructions = baseline_prog.predictor.signature.instructions
-
-        logger.info("Evaluating baseline program on %d validation examples...", len(val_examples))
-        baseline_summary = self._evaluate_program_on_subset(
-            program=baseline_prog,
-            subset=val_examples,
-            metric=base_metric,
-            lm=student_lm,
-        )
-        logger.info("Baseline validation mean score: %.4f", baseline_summary["mean_score"])
-
-        # 5. Build and Execute GEPA Optimizer
-        gepa = dspy.GEPA(
-            metric=guarded_metric,
-            reflection_lm=reflection_lm,
-            max_metric_calls=self.config.max_metric_calls,
-            track_stats=True,
-            seed=self.config.seed,
-        )
-
-        candidate_prog: Optional[CrispeGenerationProgram] = None
-        status = "SUCCESS"
-        error_msg: Optional[str] = None
-
+        # Activate ambient budget context
+        ctx_token = self.guard.activate()
         try:
-            with dspy.context(lm=student_lm):
-                logger.info(
-                    "Executing gepa.compile() with max_metric_calls=%d, train=%d, val=%d...",
-                    self.config.max_metric_calls,
-                    len(train_examples),
-                    len(val_examples),
-                )
-                candidate_prog = gepa.compile(
-                    student=baseline_prog,
-                    trainset=train_examples,
-                    valset=val_examples,
-                )
-        except (BudgetExceededError, OptimizationTimeoutError) as exc:
-            status = "BUDGET_EXCEEDED"
-            error_msg = str(exc)
-            logger.warning("Optimization halted by resource guard: %s", exc)
-            candidate_prog = baseline_prog  # Fallback to baseline
-        except Exception as exc:
-            status = "FAILED"
-            error_msg = str(exc)
-            logger.error("Optimization failed unexpectedly: %s", exc)
-            candidate_prog = baseline_prog
+            # 3. Guarded Metric Setup
+            base_metric = CrispeGepaMetric(enable_model_judge=self.config.enable_model_judge)
+
+            def guarded_metric(gold, pred, trace=None, pred_name=None, pred_trace=None, **kwargs):
+                self.guard.record_metric_call()
+                return base_metric(gold, pred, trace=trace, pred_name=pred_name, pred_trace=pred_trace, **kwargs)
+
+            # 4. Evaluate Baseline Program
+            baseline_prog = CrispeGenerationProgram()
+            base_instructions = baseline_prog.predictor.signature.instructions
+
+            logger.info("Evaluating baseline program on %d validation examples...", len(val_examples))
+            baseline_summary = self._evaluate_program_on_subset(
+                program=baseline_prog,
+                subset=val_examples,
+                metric=base_metric,
+                lm=student_lm,
+            )
+            logger.info("Baseline validation mean score: %.4f", baseline_summary["mean_score"])
+
+            # 5. Build and Execute GEPA Optimizer
+            gepa = dspy.GEPA(
+                metric=guarded_metric,
+                reflection_lm=reflection_lm,
+                max_metric_calls=self.config.max_metric_calls,
+                track_stats=True,
+                seed=self.config.seed,
+            )
+
+            candidate_prog: Optional[CrispeGenerationProgram] = None
+            status = "SUCCESS"
+            error_msg: Optional[str] = None
+
+            try:
+                with dspy.context(lm=student_lm):
+                    logger.info(
+                        "Executing gepa.compile() with max_metric_calls=%d, train=%d, val=%d...",
+                        self.config.max_metric_calls,
+                        len(train_examples),
+                        len(val_examples),
+                    )
+                    candidate_prog = gepa.compile(
+                        student=baseline_prog,
+                        trainset=train_examples,
+                        valset=val_examples,
+                    )
+            except (BudgetExceededError, OptimizationTimeoutError) as exc:
+                status = getattr(exc, "stop_reason", "BUDGET_EXCEEDED")
+                error_msg = str(exc)
+                logger.warning("Optimization halted by resource guard: %s", exc)
+                candidate_prog = baseline_prog  # Fallback to baseline
+            except Exception as exc:
+                status = "FAILED"
+                error_msg = str(exc)
+                logger.error("Optimization failed unexpectedly: %s", exc)
+                candidate_prog = baseline_prog
+        finally:
+            self.guard.deactivate(ctx_token)
 
         # 6. Evaluate Candidate Program on Validation Subset
         candidate_summary = self._evaluate_program_on_subset(

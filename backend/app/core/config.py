@@ -242,7 +242,7 @@ class Settings(BaseSettings):
         return self.EMBEDDING_DIMENSIONS
 
     # --------------------------------------------------------------------------
-    # Optimization Engine Defaults (Feature A Placeholders)
+    # Optimization Engine & AI Resource Budgeting (Steps 24-25)
     # --------------------------------------------------------------------------
     DEFAULT_MAX_ITERATIONS: int = Field(
         default=5, ge=1, le=50, description="Default max iterations per optimization run"
@@ -252,6 +252,31 @@ class Settings(BaseSettings):
     )
     MAX_CONCURRENT_RUNS: int = Field(
         default=2, ge=1, le=10, description="Maximum concurrent optimization runs"
+    )
+    BUDGET_MAX_METRIC_CALLS_DEFAULT: int = Field(
+        default=20, ge=1, le=100, description="Default ceiling on GEPA metric invocations"
+    )
+    BUDGET_MAX_PROVIDER_REQUESTS_DEFAULT: int = Field(
+        default=50, ge=1, le=500, description="Default ceiling on total provider API requests"
+    )
+    BUDGET_MAX_ELAPSED_SECONDS_DEFAULT: float = Field(
+        default=300.0, ge=5.0, le=3600.0, description="Default max elapsed execution seconds"
+    )
+    BUDGET_MAX_CONCURRENT_REQUESTS_DEFAULT: int = Field(
+        default=2, ge=1, le=20, description="Default max concurrent model requests"
+    )
+    BUDGET_MAX_RETRIES_DEFAULT: int = Field(
+        default=3, ge=0, le=10, description="Default max retry attempts per operation"
+    )
+    BUDGET_MAX_PROCESSED_EXAMPLES_DEFAULT: int = Field(
+        default=20, ge=1, le=100, description="Default max dataset examples processed per run"
+    )
+    BUDGET_MAX_TOTAL_TOKENS_DEFAULT: Optional[int] = Field(
+        default=100000, ge=100, le=10000000, description="Default aggregate token ceiling"
+    )
+    BUDGET_PRICING_CONFIG_VERSION: str = Field(
+        default="gemini-2025-standard-v1",
+        description="Pricing table version used for cost estimates",
     )
 
     @field_validator("CORS_ORIGINS", mode="before")
@@ -303,6 +328,18 @@ class Settings(BaseSettings):
                 f"Must be one of: 'cosine', 'euclidean', 'inner_product'."
             )
         return normalized
+
+    @field_validator("BUDGET_MAX_PROVIDER_REQUESTS_DEFAULT")
+    @classmethod
+    def validate_budget_provider_requests(cls, value: int, info) -> int:
+        """Ensure provider request ceiling is at least equal to metric call ceiling."""
+        metric_calls = info.data.get("BUDGET_MAX_METRIC_CALLS_DEFAULT", 20)
+        if value < metric_calls:
+            raise ValueError(
+                f"BUDGET_MAX_PROVIDER_REQUESTS_DEFAULT ({value}) must be greater than or equal to "
+                f"BUDGET_MAX_METRIC_CALLS_DEFAULT ({metric_calls})"
+            )
+        return value
 
     def get_gemini_api_key(self) -> str:
         """
@@ -409,6 +446,14 @@ class Settings(BaseSettings):
             "default_max_iterations": self.DEFAULT_MAX_ITERATIONS,
             "max_budget_usd_per_run": self.MAX_BUDGET_USD_PER_RUN,
             "max_concurrent_runs": self.MAX_CONCURRENT_RUNS,
+            "budget_max_metric_calls_default": self.BUDGET_MAX_METRIC_CALLS_DEFAULT,
+            "budget_max_provider_requests_default": self.BUDGET_MAX_PROVIDER_REQUESTS_DEFAULT,
+            "budget_max_elapsed_seconds_default": self.BUDGET_MAX_ELAPSED_SECONDS_DEFAULT,
+            "budget_max_concurrent_requests_default": self.BUDGET_MAX_CONCURRENT_REQUESTS_DEFAULT,
+            "budget_max_retries_default": self.BUDGET_MAX_RETRIES_DEFAULT,
+            "budget_max_processed_examples_default": self.BUDGET_MAX_PROCESSED_EXAMPLES_DEFAULT,
+            "budget_max_total_tokens_default": self.BUDGET_MAX_TOTAL_TOKENS_DEFAULT,
+            "budget_pricing_config_version": self.BUDGET_PRICING_CONFIG_VERSION,
         }
 
 
