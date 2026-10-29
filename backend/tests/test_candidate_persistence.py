@@ -573,7 +573,80 @@ async def test_api_tenant_isolation_prevents_unauthorized_access(
 
 
 # =============================================================================
-# 6. Production System Prompt Invariant Test
+# 6. Database and Migration Integrity Tests
+# =============================================================================
+
+def test_alembic_migration_0005_discovery_and_structure():
+    """Verify that Alembic script directory discovers migration 0005 and validates its down-revision chain."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    alembic_ini_path = Path(__file__).resolve().parent.parent / "alembic.ini"
+    alembic_cfg = Config(str(alembic_ini_path))
+    script_dir = ScriptDirectory.from_config(alembic_cfg)
+
+    head_rev = script_dir.get_current_head()
+    assert head_rev == "0005_prompt_candidates"
+
+    script = script_dir.get_revision("0005_prompt_candidates")
+    assert script is not None
+    assert script.down_revision == "0004_optimization_jobs"
+    assert hasattr(script.module, "upgrade")
+    assert hasattr(script.module, "downgrade")
+
+
+@pytest.mark.asyncio
+async def test_different_evaluator_versions_create_distinct_records(test_db, sample_job):
+    """Re-evaluating the same immutable candidate under different evaluator versions creates distinct records."""
+    _, session_factory = test_db
+    service = CandidatePersistenceService()
+
+    async with session_factory() as session:
+        cand = await service.save_candidate(
+            session=session,
+            job_id=sample_job,
+            instruction_text="Candidate evaluated under two evaluator versions",
+        )
+        await session.flush()
+
+        # Version 1 evaluation
+        eval_v1 = await service.save_evaluation(
+            session=session,
+            candidate_id=cand.id,
+            job_id=sample_job,
+            evaluation_type=EvaluationType.DETERMINISTIC.value,
+            dataset_split="val",
+            example_id="ex_001",
+            evaluator_version="v1.0.0",
+            rubric_version="v1.0.0",
+            metrics={"crispe_score": 0.82},
+        )
+
+        # Version 2 evaluation with different rubric
+        eval_v2 = await service.save_evaluation(
+            session=session,
+            candidate_id=cand.id,
+            job_id=sample_job,
+            evaluation_type=EvaluationType.DETERMINISTIC.value,
+            dataset_split="val",
+            example_id="ex_002",
+            evaluator_version="v2.0.0",
+            rubric_version="v2.0.0",
+            metrics={"crispe_score": 0.89},
+        )
+        await session.commit()
+        id1, id2 = eval_v1.id, eval_v2.id
+
+    assert id1 != id2
+    async with session_factory() as session:
+        e1 = await session.get(CandidateEvaluation, id1)
+        e2 = await session.get(CandidateEvaluation, id2)
+        assert e1.evaluator_version == "v1.0.0"
+        assert e2.evaluator_version == "v2.0.0"
+
+
+# =============================================================================
+# 7. Production System Prompt Invariant Test
 # =============================================================================
 
 def test_production_prompt_invariant_step27():
