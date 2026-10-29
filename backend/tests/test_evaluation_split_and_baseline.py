@@ -170,7 +170,7 @@ def test_task_family_grouping_preserved(accessor: EvaluationDatasetAccessor, off
     family_to_partition = {}
     for p_name, p_sum in official_manifest.partitions.items():
         for eid in p_sum.example_ids:
-            ex = accessor.get_example_by_id(eid)
+            ex = accessor.get_example_by_id(eid, allow_holdout=True)
             assert ex is not None
             fam = ex.task_family or ex.example_id
             if fam in family_to_partition:

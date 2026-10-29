@@ -126,8 +126,25 @@ class EvaluationDatasetAccessor:
                 f"{[p.value for p in PartitionName]}"
             )
 
-    def get_example_by_id(self, example_id: str) -> Optional[EvaluationExample]:
-        """Retrieve an example by its unique identifier."""
+    def get_example_by_id(
+        self,
+        example_id: str,
+        allow_holdout: bool = False,
+    ) -> Optional[EvaluationExample]:
+        """Retrieve an example by its unique identifier.
+
+        Parameters:
+            example_id: The example slug identifier.
+            allow_holdout: Required to be True if the example belongs to the final holdout partition.
+
+        Raises:
+            HoldoutAccessRestrictedError: If the example is in the final holdout and allow_holdout is False.
+        """
+        if example_id in self._hld_ids and not allow_holdout:
+            logger.warning("Attempted to access sealed holdout example '%s' without authorization.", example_id)
+            raise HoldoutAccessRestrictedError(
+                f"Example '{example_id}' resides in the final holdout partition and cannot be accessed without authorization."
+            )
         return self._id_to_example.get(example_id)
 
 

@@ -9,6 +9,8 @@ import re
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.evaluation.check_schemas import DeterministicCheckDefinition
+
 
 class TaskType(str, Enum):
     """Categorical domain taxonomy for prompt optimization evaluation tasks."""
@@ -123,6 +125,10 @@ class EvaluationExample(BaseModel):
         ...,
         min_length=10,
         description="Clear instructions for future automated and human evaluators on applying the rubric consistently.",
+    )
+    deterministic_checks: Optional[List[DeterministicCheckDefinition]] = Field(
+        default=None,
+        description="Optional explicit machine-checkable rules for deterministic evaluation (Step 20).",
     )
 
     # -------------------------------------------------------------------------
