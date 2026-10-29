@@ -1,0 +1,126 @@
+{
+  "manifest_version": "v1",
+  "dataset_version": "v1",
+  "dataset_file": "prompt_optimization_eval_v1.jsonl",
+  "dataset_sha256": "9157053e31d52931dbe49182fc1f79bfd8a085d1aaeef0876793b176fbb85573",
+  "splitter_version": "1.0.0",
+  "random_seed": 42,
+  "target_proportions": {
+    "optimization": 0.6,
+    "validation": 0.2,
+    "final_holdout": 0.2
+  },
+  "total_examples": 50,
+  "partitions": {
+    "optimization": {
+      "count": 30,
+      "percentage": 60.0,
+      "example_ids": [
+        "eval_aml_001",
+        "eval_aml_003",
+        "eval_aml_004",
+        "eval_aml_005",
+        "eval_aml_007",
+        "eval_edg_001",
+        "eval_edg_003",
+        "eval_edg_005",
+        "eval_edg_007",
+        "eval_edg_009",
+        "eval_edu_001",
+        "eval_edu_003",
+        "eval_edu_004",
+        "eval_edu_005",
+        "eval_edu_008",
+        "eval_prd_001",
+        "eval_prd_003",
+        "eval_prd_005",
+        "eval_prd_006",
+        "eval_prd_007",
+        "eval_res_001",
+        "eval_res_002",
+        "eval_res_004",
+        "eval_res_006",
+        "eval_res_007",
+        "eval_swe_001",
+        "eval_swe_005",
+        "eval_swe_007",
+        "eval_swe_008",
+        "eval_swe_009"
+      ],
+      "domain_distribution": {
+        "ai_machine_learning": 5,
+        "edge_cases_conflicts": 5,
+        "education_problem_solving": 5,
+        "product_system_design": 5,
+        "technical_research": 5,
+        "software_engineering": 5
+      },
+      "difficulty_distribution": {
+        "medium": 14,
+        "hard": 7,
+        "easy": 9
+      }
+    },
+    "validation": {
+      "count": 10,
+      "percentage": 20.0,
+      "example_ids": [
+        "eval_aml_006",
+        "eval_aml_008",
+        "eval_edg_004",
+        "eval_edg_006",
+        "eval_edu_002",
+        "eval_edu_007",
+        "eval_prd_008",
+        "eval_res_005",
+        "eval_swe_004",
+        "eval_swe_006"
+      ],
+      "domain_distribution": {
+        "ai_machine_learning": 2,
+        "edge_cases_conflicts": 2,
+        "education_problem_solving": 2,
+        "product_system_design": 1,
+        "technical_research": 1,
+        "software_engineering": 2
+      },
+      "difficulty_distribution": {
+        "medium": 5,
+        "easy": 2,
+        "hard": 3
+      }
+    },
+    "final_holdout": {
+      "count": 10,
+      "percentage": 20.0,
+      "example_ids": [
+        "eval_aml_002",
+        "eval_edg_002",
+        "eval_edg_008",
+        "eval_edu_006",
+        "eval_prd_002",
+        "eval_prd_004",
+        "eval_res_003",
+        "eval_res_008",
+        "eval_swe_002",
+        "eval_swe_003"
+      ],
+      "domain_distribution": {
+        "ai_machine_learning": 1,
+        "edge_cases_conflicts": 2,
+        "education_problem_solving": 1,
+        "product_system_design": 2,
+        "technical_research": 2,
+        "software_engineering": 2
+      },
+      "difficulty_distribution": {
+        "easy": 3,
+        "medium": 3,
+        "hard": 4
+      }
+    }
+  },
+  "grouping_strategy": "task_family_stratified",
+  "created_at": "2026-10-29T12:42:13.879389Z",
+  "notes": "Sealed final holdout protocol: The final_holdout partition is strictly reserved for unbiased post-optimization measurement and must NEVER be supplied to candidate optimizers."
+}
