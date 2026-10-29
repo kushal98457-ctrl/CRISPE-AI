@@ -1,0 +1,31 @@
+"""DSPy integration package for programmable CRISPE prompt generation (Step 22)."""
+
+from app.dspy_modules.evaluation_adapter import (
+    DspyEvaluationAdapter,
+)
+from app.dspy_modules.model_client import (
+    create_dspy_lm,
+    dspy_isolated_context,
+    normalize_dspy_model_name,
+)
+from app.dspy_modules.program import (
+    CrispeGenerationProgram,
+    create_crispe_program,
+)
+from app.dspy_modules.service import (
+    DspyCrispeGenerationService,
+)
+from app.dspy_modules.signature import (
+    CrispeGenerationSignature,
+)
+
+__all__ = [
+    "CrispeGenerationSignature",
+    "CrispeGenerationProgram",
+    "create_crispe_program",
+    "normalize_dspy_model_name",
+    "create_dspy_lm",
+    "dspy_isolated_context",
+    "DspyCrispeGenerationService",
+    "DspyEvaluationAdapter",
+]

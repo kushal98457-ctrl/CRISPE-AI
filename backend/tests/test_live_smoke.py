@@ -132,3 +132,34 @@ async def test_live_judge_evaluation_smoke() -> None:
         assert result.evaluator_model_id
     finally:
         await adapter.close()
+
+
+@pytest.mark.skipif(
+    not (RUN_LIVE and HAS_KEY),
+    reason="Live smoke test requires RUN_LIVE_TESTS=1 and a configured GEMINI_API_KEY.",
+)
+@pytest.mark.asyncio
+async def test_live_dspy_generation_smoke() -> None:
+    """Opt-in live smoke test verifying real DSPy CRISPE prompt generation with Google GenAI (Step 22)."""
+    from app.dspy_modules.model_client import create_dspy_lm
+    from app.dspy_modules.service import DspyCrispeGenerationService
+    from app.schemas.crispe import CrispeGenerationRequest, CrispeGenerationResponse
+
+    settings = get_settings()
+    lm = create_dspy_lm(settings=settings)
+    service = DspyCrispeGenerationService(lm=lm, settings=settings)
+
+    request = CrispeGenerationRequest(
+        idea="A command-line tool to format JSON files in place",
+        temperature=0.2,
+    )
+
+    response: CrispeGenerationResponse = await service.generate_crispe_prompt(request)
+    assert response.sections.context
+    assert response.sections.role
+    assert response.sections.instruction
+    assert response.sections.specification
+    assert response.sections.performance
+    assert response.sections.example
+    assert "# C - Context" in response.formatted_prompt
+    assert response.model_id
