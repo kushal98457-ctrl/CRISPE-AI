@@ -17,6 +17,9 @@ from app.schemas.embedding import (
 from app.schemas.error import ErrorDetail, ErrorResponse
 from app.schemas.health import HealthResponse, ReadinessResponse
 from app.schemas.semantic_search import (
+    SemanticMemorySearchRequest,
+    SemanticMemorySearchResultItem,
+    SemanticMemorySearchResponse,
     SemanticSearchItem,
     SemanticSearchQuery,
     SemanticSearchResponse,
@@ -40,4 +43,7 @@ __all__ = [
     "SemanticSearchQuery",
     "SemanticSearchItem",
     "SemanticSearchResponse",
+    "SemanticMemorySearchRequest",
+    "SemanticMemorySearchResultItem",
+    "SemanticMemorySearchResponse",
 ]

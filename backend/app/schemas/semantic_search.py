@@ -146,3 +146,134 @@ class SemanticSearchResponse(BaseModel):
         default="cosine_distance",
         description="Underlying vector distance operator applied in PostgreSQL.",
     )
+
+
+class SemanticMemorySearchRequest(BaseModel):
+    """HTTP API request contract for semantic memory similarity retrieval."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_SEARCH_QUERY_LENGTH,
+        description="Search text or task description to match against saved prompt embeddings.",
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Maximum number of nearest neighbor results to return (1-50).",
+    )
+    task_type: Optional[str] = Field(
+        default=None,
+        max_length=64,
+        description="Optional task classification or domain category filter.",
+    )
+    min_similarity: Optional[float] = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="Optional minimum derived cosine similarity threshold (1.0 - distance).",
+    )
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def validate_and_clean_query(cls, value: str) -> str:
+        """Validate query text is non-empty after whitespace trimming."""
+        if not isinstance(value, str):
+            raise PromptValidationError(f"Query must be a string, got {type(value).__name__}.")
+        cleaned = value.strip()
+        if not cleaned:
+            raise EmptyPromptError("Search query cannot be empty or whitespace only.")
+        if len(cleaned) > MAX_SEARCH_QUERY_LENGTH:
+            raise PromptValidationError(
+                f"Search query exceeds maximum permitted length of {MAX_SEARCH_QUERY_LENGTH} characters."
+            )
+        return cleaned
+
+
+class SemanticMemorySearchResultItem(BaseModel):
+    """Structured representation of a single matching prompt retrieved from Semantic Memory.
+
+    Raw vector embeddings are strictly excluded to avoid leaking internal vector
+    representations and minimize payload bandwidth.
+    """
+
+    model_config = ConfigDict(from_attributes=True, extra="ignore")
+
+    prompt_id: uuid.UUID = Field(
+        ...,
+        description="Unique identifier of the matching persistent prompt record.",
+    )
+    original_idea: str = Field(
+        ...,
+        description="The original user idea or task description of the saved prompt.",
+    )
+    generated_prompt: CrispeSections = Field(
+        ...,
+        description="The structured six-section CRISPE prompt definition.",
+    )
+    formatted_prompt: str = Field(
+        ...,
+        description="Rendered canonical Markdown prompt matching UI headers.",
+    )
+    task_type: Optional[str] = Field(
+        default=None,
+        description="Optional classification or domain category tag.",
+    )
+    distance: float = Field(
+        ...,
+        ge=0.0,
+        description="Calculated vector distance using cosine metric (0.0 = identical).",
+    )
+    similarity: float = Field(
+        ...,
+        ge=-1.0,
+        le=1.0,
+        description="Derived cosine similarity score (1.0 - distance).",
+    )
+
+
+class SemanticMemorySearchResponse(BaseModel):
+    """HTTP API response contract for semantic prompt memory search."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    query: str = Field(
+        ...,
+        description="The normalized search query text executed.",
+    )
+    results: List[SemanticMemorySearchResultItem] = Field(
+        default_factory=list,
+        description="List of nearest neighbor prompt matches ordered by relevance.",
+    )
+    result_count: int = Field(
+        ...,
+        ge=0,
+        description="Total number of matching prompt records returned.",
+    )
+
+    @classmethod
+    def from_service_response(
+        cls, service_res: SemanticSearchResponse
+    ) -> "SemanticMemorySearchResponse":
+        """Map internal service-level SemanticSearchResponse to public API response contract."""
+        items = [
+            SemanticMemorySearchResultItem(
+                prompt_id=item.prompt_id,
+                original_idea=item.original_idea,
+                generated_prompt=item.sections,
+                formatted_prompt=item.formatted_prompt,
+                task_type=item.task_type,
+                distance=item.distance,
+                similarity=item.similarity,
+            )
+            for item in service_res.items
+        ]
+        return cls(
+            query=service_res.query,
+            results=items,
+            result_count=len(items),
+        )
+
