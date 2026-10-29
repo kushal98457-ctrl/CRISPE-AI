@@ -265,6 +265,76 @@ class ModelPromptEvaluator:
 
         return disagreements
 
+    def combine_results(
+        self,
+        deterministic_result: EvaluationExampleResult,
+        model_result: Optional[ModelEvaluationResult],
+        example_id: Optional[str] = None,
+        dataset_version: Optional[str] = None,
+    ) -> CombinedEvaluationResult:
+        """Combine deterministic and model evaluation results synchronously."""
+        eval_id = f"comb_{uuid.uuid4().hex[:12]}"
+        det_res = deterministic_result
+        model_res = model_result
+        disagreements: List[str] = []
+        critical_reasons = list(det_res.critical_failure_reasons)
+        has_critical = det_res.critical_failure
+
+        if model_res and model_res.status == "SUCCESS":
+            disagreements = self.detect_disagreements(det_res, model_res)
+            if model_res.critical_issues:
+                has_critical = True
+                critical_reasons.extend(model_res.critical_issues)
+
+        det_score = det_res.composite_score
+        model_score: Optional[float] = None
+        if model_res and model_res.status == "SUCCESS":
+            model_score = model_res.normalized_model_score
+            uncapped_composite = (0.40 * det_score) + (0.60 * model_score)
+        else:
+            uncapped_composite = det_score
+
+        composite = uncapped_composite
+
+        if has_critical:
+            composite = min(composite, 0.40)
+
+        if not det_res.crispe_structure_valid:
+            composite = min(composite, 0.20)
+
+        if det_res.status == "GENERATION_FAILED":
+            composite = 0.00
+
+        composite = round(max(0.0, min(1.0, composite)), 4)
+
+        if det_res.status == "GENERATION_FAILED":
+            comb_status = "FAILED"
+        elif model_res is None or model_res.status == "SKIPPED":
+            comb_status = "PARTIAL_SUCCESS"
+        elif model_res.status == "EVALUATOR_FAILED":
+            comb_status = "PARTIAL_SUCCESS"
+        else:
+            comb_status = "SUCCESS"
+
+        eid = example_id or det_res.example_id
+        dver = dataset_version or det_res.dataset_version
+
+        return CombinedEvaluationResult(
+            evaluation_id=eval_id,
+            example_id=eid,
+            dataset_version=dver,
+            combined_status=comb_status,
+            deterministic_result=det_res,
+            model_result=model_res,
+            deterministic_score=det_score,
+            model_assisted_score=model_score,
+            composite_score=composite,
+            critical_failure=has_critical,
+            critical_failure_reasons=critical_reasons,
+            disagreements=disagreements,
+            evaluated_at=datetime.now(timezone.utc),
+        )
+
     async def evaluate_combined(
         self,
         example: EvaluationExample,

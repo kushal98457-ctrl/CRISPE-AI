@@ -163,3 +163,67 @@ async def test_live_dspy_generation_smoke() -> None:
     assert response.sections.example
     assert "# C - Context" in response.formatted_prompt
     assert response.model_id
+
+
+@pytest.mark.skipif(
+    not (RUN_LIVE and HAS_KEY),
+    reason="Live smoke test requires RUN_LIVE_TESTS=1 and a configured GEMINI_API_KEY.",
+)
+def test_live_gepa_metric_smoke() -> None:
+    """Opt-in live smoke test verifying real GEPA metric evaluation with Google GenAI (Step 23)."""
+    from app.adapters.gemini_adapter import GeminiModelAdapter
+    from app.dspy_modules.dataset_converter import convert_evaluation_example
+    from app.dspy_modules.gepa_metric import CrispeGepaMetric
+    from app.dspy_modules.model_client import create_dspy_lm
+    from app.dspy_modules.program import CrispeGenerationProgram
+    from app.evaluation.model_evaluator import ModelPromptEvaluator
+    from app.evaluation.schemas import EvaluationExample, TaskDifficulty, TaskType
+    from dspy.teleprompt.gepa.gepa import ScoreWithFeedback
+
+    settings = get_settings()
+    lm = create_dspy_lm(settings=settings)
+    program = CrispeGenerationProgram()
+
+    sample_example = EvaluationExample(
+        example_id="live_gepa_smoke_01",
+        task_family="smoke_testing",
+        task_type=TaskType.SOFTWARE_ENGINEERING,
+        difficulty=TaskDifficulty.EASY,
+        tags=["smoke", "testing"],
+        example_version="v1",
+        user_idea="Generate a Python utility to format Markdown tables",
+        task_context="Standard CLI developer environment",
+        required_behaviors=["Accept pipe or file input", "Output aligned tables"],
+        constraints=["Standard library only"],
+        expected_output_format="Python CLI script snippet",
+        ambiguity_notes="None.",
+        acceptance_criteria=["Preserves header row", "Aligns column widths"],
+        critical_requirements=["Standard library only"],
+        prohibited_behaviors=["Do not use external pip packages"],
+        grading_notes="Check for standard library only in specification.",
+    )
+
+    gold = convert_evaluation_example(sample_example)
+
+    # 1. Generate real prompt using live DSPy LM
+    import dspy
+    with dspy.context(lm=lm):
+        pred = program(
+            idea=gold.idea,
+            task_context=gold.task_context,
+            constraints=gold.constraints,
+            output_format_preference=gold.output_format_preference,
+        )
+
+    # 2. Evaluate using live CrispeGepaMetric with live judge adapter
+    adapter = GeminiModelAdapter(settings=settings)
+    model_evaluator = ModelPromptEvaluator(adapter=adapter, settings=settings)
+    metric = CrispeGepaMetric(model_evaluator=model_evaluator, enable_model_judge=True)
+
+    result = metric(gold=gold, pred=pred)
+    assert isinstance(result, ScoreWithFeedback)
+    assert 0.0 <= result.score <= 1.0
+    assert len(result.feedback) > 0
+    assert "deterministic" in result.objective_scores
+    assert "model" in result.objective_scores
+

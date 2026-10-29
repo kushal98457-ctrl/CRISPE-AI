@@ -104,6 +104,55 @@ def create_dspy_lm(
         ) from exc
 
 
+def create_dspy_reflection_lm(
+    model_id: Optional[str] = None,
+    settings: Optional[Settings] = None,
+    api_key: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+    timeout: Optional[float] = None,
+    cache: bool = False,
+    **kwargs: Any,
+) -> dspy.LM:
+    """Instantiate a configured DSPy LM client specifically for GEPA reflection (Step 23).
+
+    Reflection reasoning analyzes evaluation feedback and proposes candidate prompt mutations.
+    Defaults to settings.REFLECTION_MODEL ('gemini-2.5-flash') at low temperature (0.0).
+
+    Parameters:
+        model_id: Optional reflection model override (defaults to settings.REFLECTION_MODEL).
+        settings: Application Settings instance.
+        api_key: Optional explicit API key override.
+        temperature: Sampling temperature (defaults to 0.0 for structured reflection).
+        max_tokens: Upper bound on output tokens.
+        timeout: Request timeout in seconds.
+        cache: Whether to enable DSPy disk caching.
+        kwargs: Additional arguments forwarded to dspy.LM.
+
+    Returns:
+        dspy.LM instance configured for reflection operations.
+    """
+    cfg = settings or get_settings()
+    target_reflection_model = model_id or cfg.REFLECTION_MODEL
+    resolved_temperature = temperature if temperature is not None else 0.0
+
+    logger.info(
+        "Configuring DSPy reflection LM for model '%s' (temp=%.2f)",
+        target_reflection_model,
+        resolved_temperature,
+    )
+    return create_dspy_lm(
+        model_id=target_reflection_model,
+        settings=cfg,
+        api_key=api_key,
+        temperature=resolved_temperature,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        cache=cache,
+        **kwargs,
+    )
+
+
 @contextmanager
 def dspy_isolated_context(lm: dspy.LM, **override_kwargs: Any) -> Generator[None, None, None]:
     """Execute code within an isolated request-scoped DSPy context.
