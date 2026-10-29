@@ -56,6 +56,30 @@ class Settings(BaseSettings):
     )
 
     # --------------------------------------------------------------------------
+    # Model Context Protocol (MCP) Configuration (Step 29)
+    # --------------------------------------------------------------------------
+    MCP_SERVER_NAME: str = Field(
+        default="crispe-ai-mcp",
+        description="Public server name advertised by the MCP server foundation",
+    )
+    MCP_SERVER_TITLE: str = Field(
+        default="CRISPE-AI Model Context Protocol Server",
+        description="Human-readable title for the CRISPE-AI MCP server",
+    )
+    MCP_SERVER_DESCRIPTION: str = Field(
+        default="Enterprise CRISPE prompt generation, semantic prompt memory, and optimization MCP server",
+        description="Description published in MCP server capabilities",
+    )
+    MCP_STDIO_LOG_LEVEL: str = Field(
+        default="INFO",
+        description="Logging level for MCP stdio transport (directed to stderr only)",
+    )
+    MCP_ENABLE_SMOKE_TOOLS: bool = Field(
+        default=True,
+        description="Whether to register basic smoke-test tools (ping, server_info)",
+    )
+
+    # --------------------------------------------------------------------------
     # Gemini AI Provider Configuration (Step 6)
     # --------------------------------------------------------------------------
     PROVIDER_NAME: str = Field(

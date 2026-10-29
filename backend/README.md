@@ -325,3 +325,22 @@ CRISPE-AI provides a secure, auditable prompt-release management system governin
 pytest tests/test_prompt_release.py -v
 ```
 *(14 passed in ~1.1s)*
+
+---
+
+## 🔌 Model Context Protocol (MCP) Server Foundation (Step 29)
+
+CRISPE-AI provides an official Model Context Protocol (MCP) server foundation for **Feature B (CRISPE MCP Server)** using Anthropic's official `mcp` SDK (`v2.3.0`):
+
+- **Pure Server Factory (`create_mcp_server`):** Reusable, testable server construction without import-time side effects (no network ports opened, no database queries, no external model calls).
+- **Dependency Injection Bridge (`MCPAppContext`):** Defers resolution of domain services (`CrispeGenerationService`, `SemanticSearchService`, `OptimizationJobService`, `PromptReleaseService`) until requested by a tool.
+- **Strict Stdio Stream Protection:** Standard I/O logging is reconfigured to emit exclusively to `sys.stderr`, guaranteeing that stdout remains an uncorrupted JSON-RPC byte stream for MCP clients.
+- **Credential & Path Redaction:** Automated error scrubbing sanitizes database connection strings (`postgresql://...`), provider API keys (`AIzaSy...`, `sk-...`), query parameters, and local file paths before returning error envelopes to clients.
+- **Safe Smoke Test Capabilities:** Implements minimal, harmless `ping` and `server_info` tools verifying protocol initialization, tool discovery, and JSON-RPC message framing.
+- **CLI Stdio Entrypoint:** Launchable directly via `python -m app.mcp.server`.
+
+### Run MCP Foundation Tests:
+```powershell
+pytest tests/mcp/test_server_foundation.py -v
+```
+*(13 passed in ~1.0s)*
